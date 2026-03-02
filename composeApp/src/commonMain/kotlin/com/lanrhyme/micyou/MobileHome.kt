@@ -97,6 +97,7 @@ import kotlinx.coroutines.delay
 import micyou.composeapp.generated.resources.Res
 import micyou.composeapp.generated.resources.icon_settings
 import org.jetbrains.compose.resources.painterResource
+import kotlin.math.abs
 import kotlin.math.cos
 import kotlin.math.min
 import kotlin.math.sin
@@ -593,7 +594,8 @@ private fun MainControlCard(
                 MobileAudioVisualizer(
                     modifier = Modifier.size(240.dp),
                     audioLevel = audioLevel,
-                    color = MaterialTheme.colorScheme.primary
+                    color = MaterialTheme.colorScheme.primary,
+                    style = state.visualizerStyle
                 )
             }
             
@@ -618,19 +620,38 @@ private fun MainControlCard(
 private fun MobileAudioVisualizer(
     modifier: Modifier = Modifier,
     audioLevel: Float,
-    color: Color
+    color: Color,
+    style: VisualizerStyle = VisualizerStyle.Ripple
 ) {
     val safeAudioLevel = audioLevel.coerceIn(0f, 1f)
     val breathScale = rememberBreathAnimation(0.97f, 1.03f, 1800)
     val wavePhase = rememberWaveAnimation(phaseOffset = 0f, durationMillis = 2500)
+    val glowAlpha = rememberGlowAnimation(0.2f, 0.5f, 2000)
     
+    when (style) {
+        VisualizerStyle.Ripple -> MobileRippleVisualizer(modifier, safeAudioLevel, color, breathScale, wavePhase)
+        VisualizerStyle.Bars -> MobileBarsVisualizer(modifier, safeAudioLevel, color, wavePhase)
+        VisualizerStyle.Wave -> MobileWaveVisualizer(modifier, safeAudioLevel, color, wavePhase)
+        VisualizerStyle.Glow -> MobileGlowVisualizer(modifier, safeAudioLevel, color, glowAlpha, breathScale)
+        VisualizerStyle.Particles -> MobileParticlesVisualizer(modifier, safeAudioLevel, color, wavePhase)
+    }
+}
+
+@Composable
+private fun MobileRippleVisualizer(
+    modifier: Modifier,
+    audioLevel: Float,
+    color: Color,
+    breathScale: Float,
+    wavePhase: Float
+) {
     Canvas(modifier = modifier.scale(breathScale)) {
         val center = Offset(size.width / 2, size.height / 2)
         val baseRadius = min(size.width, size.height) / 2
         
         for (i in 0..4) {
-            val waveRadius = baseRadius * (0.5f + i * 0.15f * safeAudioLevel)
-            val alpha = (0.35f - i * 0.07f) * safeAudioLevel
+            val waveRadius = baseRadius * (0.5f + i * 0.15f * audioLevel)
+            val alpha = (0.35f - i * 0.07f) * audioLevel
             
             drawCircle(
                 color = color.copy(alpha = alpha.coerceIn(0f, 1f)),
@@ -645,7 +666,7 @@ private fun MobileAudioVisualizer(
             val angle = (i.toFloat() / barCount) * 360f + wavePhase
             val radians = Math.toRadians(angle.toDouble()).toFloat()
             
-            val dynamicLevel = safeAudioLevel * (0.4f + 0.6f * sin(angle * 0.08f + wavePhase * 0.025f))
+            val dynamicLevel = audioLevel * (0.4f + 0.6f * sin(angle * 0.08f + wavePhase * 0.025f))
             val barHeight = baseRadius * 0.18f * dynamicLevel
             
             val innerRadius = baseRadius * 0.45f
@@ -655,13 +676,192 @@ private fun MobileAudioVisualizer(
             val endY = center.y + (innerRadius + barHeight) * sin(radians)
             
             drawLine(
-                color = color.copy(alpha = 0.5f * safeAudioLevel),
+                color = color.copy(alpha = 0.5f * audioLevel),
                 start = Offset(startX, startY),
                 end = Offset(endX, endY),
                 strokeWidth = 3.dp.toPx(),
                 cap = StrokeCap.Round
             )
         }
+    }
+}
+
+@Composable
+private fun MobileBarsVisualizer(
+    modifier: Modifier,
+    audioLevel: Float,
+    color: Color,
+    wavePhase: Float
+) {
+    Canvas(modifier = modifier) {
+        val center = Offset(size.width / 2, size.height / 2)
+        val baseRadius = min(size.width, size.height) / 2
+        
+        val barCount = 48
+        for (i in 0 until barCount) {
+            val angle = (i.toFloat() / barCount) * 360f
+            val radians = Math.toRadians(angle.toDouble()).toFloat()
+            
+            val normalizedAngle = (angle + wavePhase) % 360f
+            val dynamicLevel = audioLevel * (0.3f + 0.7f * abs(sin(normalizedAngle * 0.03f + wavePhase * 0.015f)))
+            val barHeight = baseRadius * 0.35f * dynamicLevel
+            
+            val innerRadius = baseRadius * 0.35f
+            val barWidth = (2.5f * (1f + dynamicLevel * 0.5f)).dp.toPx()
+            
+            drawLine(
+                color = color.copy(alpha = (0.4f + dynamicLevel * 0.5f).coerceIn(0f, 1f)),
+                start = Offset(center.x + innerRadius * cos(radians), center.y + innerRadius * sin(radians)),
+                end = Offset(center.x + (innerRadius + barHeight) * cos(radians), center.y + (innerRadius + barHeight) * sin(radians)),
+                strokeWidth = barWidth, cap = StrokeCap.Round
+            )
+        }
+        
+        val innerGlowRadius = baseRadius * 0.3f
+        drawCircle(
+            color.copy(alpha = audioLevel * 0.15f),
+            innerGlowRadius,
+            center
+        )
+    }
+}
+
+@Composable
+private fun MobileWaveVisualizer(
+    modifier: Modifier,
+    audioLevel: Float,
+    color: Color,
+    wavePhase: Float
+) {
+    Canvas(modifier = modifier) {
+        val center = Offset(size.width / 2, size.height / 2)
+        val baseRadius = min(size.width, size.height) / 2
+        
+        for (waveIndex in 0..2) {
+            val waveRadius = baseRadius * (0.4f + waveIndex * 0.15f)
+            val waveAmplitude = baseRadius * 0.08f * audioLevel * (1f - waveIndex * 0.25f)
+            
+            val path = androidx.compose.ui.graphics.Path()
+            val segments = 72
+            
+            for (i in 0..segments) {
+                val angle = (i.toFloat() / segments) * 360f
+                val radians = Math.toRadians(angle.toDouble()).toFloat()
+                
+                val waveOffset = waveAmplitude * sin(angle * 0.1f + wavePhase * 0.05f + waveIndex * 1.5f)
+                val r = waveRadius + waveOffset
+                
+                val x = center.x + r * cos(radians)
+                val y = center.y + r * sin(radians)
+                
+                if (i == 0) path.moveTo(x, y) else path.lineTo(x, y)
+            }
+            path.close()
+            
+            drawPath(
+                path = path,
+                color = color.copy(alpha = (0.5f - waveIndex * 0.12f) * audioLevel),
+                style = Stroke(width = (3f - waveIndex * 0.5f).dp.toPx())
+            )
+        }
+        
+        drawCircle(
+            color.copy(alpha = audioLevel * 0.2f),
+            baseRadius * 0.25f,
+            center
+        )
+    }
+}
+
+@Composable
+private fun MobileGlowVisualizer(
+    modifier: Modifier,
+    audioLevel: Float,
+    color: Color,
+    glowAlpha: Float,
+    breathScale: Float
+) {
+    Canvas(modifier = modifier.scale(breathScale)) {
+        val center = Offset(size.width / 2, size.height / 2)
+        val baseRadius = min(size.width, size.height) / 2
+        
+        repeat(12) { i ->
+            val progress = i.toFloat() / 12
+            val glowRadius = baseRadius * (0.2f + progress * 0.6f) * (1f + audioLevel * 0.3f)
+            val alpha = (glowAlpha * (1f - progress * 0.8f) * audioLevel).coerceIn(0f, 0.35f)
+            drawCircle(color.copy(alpha = alpha), glowRadius, center)
+        }
+        
+        val coreRadius = baseRadius * 0.15f * (1f + audioLevel * 0.5f)
+        drawCircle(color.copy(alpha = 0.6f * audioLevel), coreRadius, center)
+        
+        val rayCount = 8
+        for (i in 0 until rayCount) {
+            val angle = (i.toFloat() / rayCount) * 360f
+            val radians = Math.toRadians(angle.toDouble()).toFloat()
+            val rayLength = baseRadius * 0.4f * audioLevel
+            
+            drawLine(
+                color = color.copy(alpha = 0.3f * audioLevel),
+                start = center,
+                end = Offset(center.x + rayLength * cos(radians), center.y + rayLength * sin(radians)),
+                strokeWidth = 2.dp.toPx(), cap = StrokeCap.Round
+            )
+        }
+    }
+}
+
+@Composable
+private fun MobileParticlesVisualizer(
+    modifier: Modifier,
+    audioLevel: Float,
+    color: Color,
+    wavePhase: Float
+) {
+    Canvas(modifier = modifier) {
+        val center = Offset(size.width / 2, size.height / 2)
+        val baseRadius = min(size.width, size.height) / 2
+        
+        val particleCount = 36
+        for (i in 0 until particleCount) {
+            val baseAngle = (i.toFloat() / particleCount) * 360f
+            val angleOffset = sin(wavePhase * 0.02f + i * 0.5f) * 15f
+            val angle = baseAngle + angleOffset
+            val radians = Math.toRadians(angle.toDouble()).toFloat()
+            
+            val distanceVariation = sin(wavePhase * 0.03f + i * 0.3f) * 0.3f
+            val baseDistance = baseRadius * (0.35f + distanceVariation)
+            val distance = baseDistance * (0.5f + audioLevel * 0.8f)
+            
+            val x = center.x + distance * cos(radians)
+            val y = center.y + distance * sin(radians)
+            
+            val particleSize = (3f + audioLevel * 4f * abs(sin(wavePhase * 0.02f + i))).dp.toPx()
+            val alpha = (0.3f + audioLevel * 0.5f).coerceIn(0f, 1f)
+            
+            drawCircle(
+                color = color.copy(alpha = alpha),
+                radius = particleSize / 2,
+                center = Offset(x, y)
+            )
+            
+            val trailLength = baseRadius * 0.1f * audioLevel
+            drawLine(
+                color = color.copy(alpha = alpha * 0.5f),
+                start = Offset(x, y),
+                end = Offset(
+                    x - trailLength * cos(radians),
+                    y - trailLength * sin(radians)
+                ),
+                strokeWidth = 1.5.dp.toPx(), cap = StrokeCap.Round
+            )
+        }
+        
+        drawCircle(
+            color.copy(alpha = audioLevel * 0.15f),
+            baseRadius * 0.2f,
+            center
+        )
     }
 }
 

@@ -25,6 +25,14 @@ enum class NoiseReductionType(val label: String) {
     None("None")
 }
 
+enum class VisualizerStyle(val label: String) {
+    Ripple("Ripple"),
+    Bars("Bars"),
+    Wave("Wave"),
+    Glow("Glow"),
+    Particles("Particles")
+}
+
 data class AppUiState(
     val mode: ConnectionMode = ConnectionMode.Wifi,
     val streamState: StreamState = StreamState.Idle,
@@ -74,6 +82,7 @@ data class AppUiState(
     val rememberCloseAction: Boolean = false,
     val newVersionAvailable: GitHubRelease? = null,
     val pocketMode: Boolean = true,
+    val visualizerStyle: VisualizerStyle = VisualizerStyle.Ripple,
     
     // Background Settings
     val backgroundSettings: BackgroundSettings = BackgroundSettings()
@@ -153,6 +162,12 @@ class MainViewModel : ViewModel() {
             CloseAction.Prompt
         }
         val savedPocketMode = settings.getBoolean("pocket_mode", true)
+        val savedVisualizerStyleName = settings.getString("visualizer_style", VisualizerStyle.Ripple.name)
+        val savedVisualizerStyle = try {
+            VisualizerStyle.valueOf(savedVisualizerStyleName)
+        } catch (e: Exception) {
+            VisualizerStyle.Ripple
+        }
         
         val savedBackgroundImagePath = settings.getString("background_image_path", "")
         val savedBackgroundBrightness = settings.getFloat("background_brightness", 0.5f)
@@ -189,6 +204,7 @@ class MainViewModel : ViewModel() {
                 minimizeToTray = savedMinimizeToTray,
                 closeAction = savedCloseAction,
                 pocketMode = savedPocketMode,
+                visualizerStyle = savedVisualizerStyle,
                 backgroundSettings = BackgroundSettings(
                     imagePath = savedBackgroundImagePath,
                     brightness = savedBackgroundBrightness,
@@ -332,6 +348,11 @@ class MainViewModel : ViewModel() {
     fun setPocketMode(enabled: Boolean) {
         _uiState.update { it.copy(pocketMode = enabled) }
         settings.putBoolean("pocket_mode", enabled)
+    }
+
+    fun setVisualizerStyle(style: VisualizerStyle) {
+        _uiState.update { it.copy(visualizerStyle = style) }
+        settings.putString("visualizer_style", style.name)
     }
 
     fun handleCloseRequest(onExit: () -> Unit, onHide: () -> Unit) {

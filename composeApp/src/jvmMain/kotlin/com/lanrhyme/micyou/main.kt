@@ -198,8 +198,8 @@ fun main() {
 
         if (isSettingsOpen) {
             val settingsState = rememberWindowState(
-                width = 700.dp,
-                height = 500.dp,
+                width = 800.dp,
+                height = 650.dp,
                 position = WindowPosition(Alignment.Center)
             )
             

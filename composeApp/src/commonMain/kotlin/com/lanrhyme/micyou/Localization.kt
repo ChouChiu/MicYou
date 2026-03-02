@@ -168,6 +168,14 @@ data class AppStrings(
     val installDeviceCreated: String = "Virtual device created, configuring...",
     val installDeviceFailed: String = "Virtual device creation failed, check system permissions and audio service",
     
+    // Visualizer Settings
+    val visualizerStyleLabel: String = "Visualizer Style",
+    val visualizerStyleRipple: String = "Ripple",
+    val visualizerStyleBars: String = "Bars",
+    val visualizerStyleWave: String = "Wave",
+    val visualizerStyleGlow: String = "Glow",
+    val visualizerStyleParticles: String = "Particles",
+    
     // Background Settings
     val backgroundSettingsLabel: String = "Background",
     val selectBackgroundImage: String = "Select Image",

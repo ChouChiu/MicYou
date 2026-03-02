@@ -1,40 +1,101 @@
 package com.lanrhyme.micyou
 
-import androidx.compose.animation.*
-import androidx.compose.animation.core.*
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.scrollBy
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.selection.SelectionContainer
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.*
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material.icons.rounded.CheckCircle
+import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.Error
+import androidx.compose.material.icons.rounded.HourglassTop
+import androidx.compose.material.icons.rounded.Info
+import androidx.compose.material.icons.rounded.Mic
+import androidx.compose.material.icons.rounded.MicOff
+import androidx.compose.material.icons.rounded.Minimize
+import androidx.compose.material.icons.rounded.PlayArrow
+import androidx.compose.material.icons.rounded.Refresh
+import androidx.compose.material.icons.rounded.Stop
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.FloatingActionButtonDefaults
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.graphics.*
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.input.pointer.PointerEventType
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.lanrhyme.micyou.animation.EasingFunctions
 import dev.chrisbanes.haze.HazeState
-import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import micyou.composeapp.generated.resources.Res
 import micyou.composeapp.generated.resources.icon_bluetooth
 import micyou.composeapp.generated.resources.icon_home_wifi
@@ -42,9 +103,11 @@ import micyou.composeapp.generated.resources.icon_pip
 import micyou.composeapp.generated.resources.icon_planet
 import micyou.composeapp.generated.resources.icon_settings
 import micyou.composeapp.generated.resources.icon_usb
-import org.jetbrains.compose.resources.ExperimentalResourceApi
 import org.jetbrains.compose.resources.painterResource
-import kotlin.math.*
+import kotlin.math.abs
+import kotlin.math.cos
+import kotlin.math.min
+import kotlin.math.sin
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -219,18 +282,114 @@ private fun HeaderSection(
                 }
             }
             
+            val ipList = platform.ipAddresses
+            val lazyListState = rememberLazyListState()
+            val coroutineScope = rememberCoroutineScope()
+            
             Surface(
                 shape = RoundedCornerShape(10.dp),
                 color = MaterialTheme.colorScheme.surfaceContainerHighest
             ) {
-                Row(
-                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                Box(
+                    modifier = Modifier.widthIn(max = 200.dp)
                 ) {
-                    Icon(painterResource(Res.drawable.icon_planet), null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(14.dp))
-                    SelectionContainer {
-                        Text(platform.ipAddress, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Medium)
+                    LazyRow(
+                        state = lazyListState,
+                        modifier = Modifier
+                            .padding(horizontal = 10.dp, vertical = 6.dp)
+                            .pointerInput(Unit) {
+                                awaitPointerEventScope {
+                                    while (true) {
+                                        val event = awaitPointerEvent()
+                                        if (event.type == PointerEventType.Scroll) {
+                                            val scrollDelta = event.changes.first().scrollDelta.y
+                                            coroutineScope.launch {
+                                                lazyListState.scrollBy(scrollDelta * 2f)
+                                            }
+                                        }
+                                    }
+                                }
+                            },
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        items(ipList.size) { index ->
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
+                                if (index > 0) {
+                                    Text(
+                                        "•",
+                                        style = MaterialTheme.typography.labelMedium,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+                                    )
+                                }
+                                Icon(
+                                    painterResource(Res.drawable.icon_planet),
+                                    null,
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(14.dp)
+                                )
+                                SelectionContainer {
+                                    Text(
+                                        ipList[index],
+                                        style = MaterialTheme.typography.labelMedium,
+                                        fontWeight = FontWeight.Medium,
+                                        maxLines = 1
+                                    )
+                                }
+                            }
+                        }
+                    }
+                    
+                    val showLeftFade by remember {
+                        derivedStateOf { lazyListState.firstVisibleItemIndex > 0 || lazyListState.firstVisibleItemScrollOffset > 0 }
+                    }
+                    val showRightFade by remember {
+                        derivedStateOf {
+                            val layoutInfo = lazyListState.layoutInfo
+                            if (layoutInfo.totalItemsCount == 0) false
+                            else {
+                                val lastVisibleItem = layoutInfo.visibleItemsInfo.lastOrNull()
+                                lastVisibleItem != null && (lastVisibleItem.index < layoutInfo.totalItemsCount - 1 || 
+                                    lastVisibleItem.offset + lastVisibleItem.size > layoutInfo.viewportEndOffset)
+                            }
+                        }
+                    }
+                    
+                    if (showLeftFade) {
+                        Box(
+                            modifier = Modifier
+                                .align(Alignment.CenterStart)
+                                .width(20.dp)
+                                .height(24.dp)
+                                .background(
+                                    Brush.horizontalGradient(
+                                        colors = listOf(
+                                            MaterialTheme.colorScheme.surfaceContainerHighest,
+                                            Color.Transparent
+                                        )
+                                    )
+                                )
+                        )
+                    }
+                    
+                    if (showRightFade) {
+                        Box(
+                            modifier = Modifier
+                                .align(Alignment.CenterEnd)
+                                .width(20.dp)
+                                .height(24.dp)
+                                .background(
+                                    Brush.horizontalGradient(
+                                        colors = listOf(
+                                            Color.Transparent,
+                                            MaterialTheme.colorScheme.surfaceContainerHighest
+                                        )
+                                    )
+                                )
+                        )
                     }
                 }
             }
@@ -490,28 +649,67 @@ private fun CenterPanel(
         hazeState = hazeState,
         enabled = state.backgroundSettings.enableHazeEffect
     ) {
-        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            if (isRunning) {
-                AudioVisualizer(
-                    modifier = Modifier.fillMaxSize(0.88f),
-                    audioLevel = audioLevel,
-                    color = MaterialTheme.colorScheme.primary
+        BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+            val buttonSize = if (isRunning) 72.dp else 64.dp
+            val visualSize = buttonSize * 3.5f
+            val buttonColor = when {
+                isRunning -> MaterialTheme.colorScheme.error
+                isConnecting -> MaterialTheme.colorScheme.tertiary
+                else -> MaterialTheme.colorScheme.primary
+            }
+            
+            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                if (isRunning) {
+                    AudioVisualizer(
+                        modifier = Modifier.size(visualSize),
+                        audioLevel = audioLevel,
+                        color = MaterialTheme.colorScheme.primary,
+                        style = state.visualizerStyle
+                    )
+                }
+                
+                if (isConnecting) {
+                    ConnectingAnimation(
+                        modifier = Modifier.size(visualSize * 0.9f),
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                }
+                
+                MainControlButton(
+                    isRunning = isRunning,
+                    isConnecting = isConnecting,
+                    onClick = { if (isRunning || isConnecting) viewModel.stopStream() else viewModel.startStream() }
                 )
             }
             
-            if (isConnecting) {
-                ConnectingAnimation(
-                    modifier = Modifier.fillMaxSize(0.88f),
-                    color = MaterialTheme.colorScheme.primary
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                modifier = Modifier
+                    .align(Alignment.Center)
+                    .padding(top = buttonSize + 24.dp)
+            ) {
+                Text(
+                    when { isRunning -> strings.statusStreaming; isConnecting -> strings.statusConnecting; else -> strings.clickToStart },
+                    style = MaterialTheme.typography.labelMedium,
+                    color = buttonColor,
+                    fontWeight = FontWeight.Medium
                 )
+                if (isRunning) {
+                    Surface(
+                        shape = RoundedCornerShape(3.dp),
+                        color = buttonColor
+                    ) {
+                        Text(
+                            "LIVE",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = Color.White,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.padding(horizontal = 5.dp, vertical = 1.dp)
+                        )
+                    }
+                }
             }
-            
-            MainControlButton(
-                isRunning = isRunning,
-                isConnecting = isConnecting,
-                onClick = { if (isRunning || isConnecting) viewModel.stopStream() else viewModel.startStream() },
-                strings = strings
-            )
         }
     }
 }
@@ -520,7 +718,8 @@ private fun CenterPanel(
 private fun AudioVisualizer(
     modifier: Modifier = Modifier,
     audioLevel: Float,
-    color: Color
+    color: Color,
+    style: VisualizerStyle = VisualizerStyle.Ripple
 ) {
     val safeAudioLevel = audioLevel.coerceIn(0f, 1f)
     
@@ -541,13 +740,31 @@ private fun AudioVisualizer(
         label = "Glow"
     )
     
+    when (style) {
+        VisualizerStyle.Ripple -> RippleVisualizer(modifier, safeAudioLevel, color, breathScale, wavePhase, glowAlpha)
+        VisualizerStyle.Bars -> BarsVisualizer(modifier, safeAudioLevel, color, wavePhase)
+        VisualizerStyle.Wave -> WaveVisualizer(modifier, safeAudioLevel, color, wavePhase)
+        VisualizerStyle.Glow -> GlowVisualizer(modifier, safeAudioLevel, color, glowAlpha, breathScale)
+        VisualizerStyle.Particles -> ParticlesVisualizer(modifier, safeAudioLevel, color, wavePhase)
+    }
+}
+
+@Composable
+private fun RippleVisualizer(
+    modifier: Modifier,
+    audioLevel: Float,
+    color: Color,
+    breathScale: Float,
+    wavePhase: Float,
+    glowAlpha: Float
+) {
     Canvas(modifier = modifier.graphicsLayer { scaleX = breathScale; scaleY = breathScale }) {
         val center = Offset(size.width / 2, size.height / 2)
         val baseRadius = min(size.width, size.height) / 2
         
         for (i in 0..3) {
-            val waveRadius = baseRadius * (0.55f + i * 0.12f * safeAudioLevel)
-            val alpha = (0.35f - i * 0.08f) * safeAudioLevel
+            val waveRadius = baseRadius * (0.55f + i * 0.12f * audioLevel)
+            val alpha = (0.35f - i * 0.08f) * audioLevel
             drawCircle(
                 color = color.copy(alpha = alpha.coerceIn(0f, 1f)),
                 radius = waveRadius, center = center,
@@ -559,12 +776,12 @@ private fun AudioVisualizer(
         for (i in 0 until barCount) {
             val angle = (i.toFloat() / barCount) * 360f + wavePhase
             val radians = Math.toRadians(angle.toDouble()).toFloat()
-            val dynamicLevel = safeAudioLevel * (0.5f + 0.5f * sin(angle * 0.05f + wavePhase * 0.02f))
+            val dynamicLevel = audioLevel * (0.5f + 0.5f * sin(angle * 0.05f + wavePhase * 0.02f))
             val barHeight = baseRadius * 0.12f * dynamicLevel
             val innerRadius = baseRadius * 0.5f
             
             drawLine(
-                color = color.copy(alpha = 0.5f * safeAudioLevel),
+                color = color.copy(alpha = 0.5f * audioLevel),
                 start = Offset(center.x + innerRadius * cos(radians), center.y + innerRadius * sin(radians)),
                 end = Offset(center.x + (innerRadius + barHeight) * cos(radians), center.y + (innerRadius + barHeight) * sin(radians)),
                 strokeWidth = 2.dp.toPx(), cap = StrokeCap.Round
@@ -574,9 +791,188 @@ private fun AudioVisualizer(
         repeat(6) { i ->
             val progress = i.toFloat() / 6
             val glowRadius = baseRadius * 0.25f * (1f + progress * 0.5f)
-            val alpha = glowAlpha * (1f - progress) * safeAudioLevel
+            val alpha = glowAlpha * (1f - progress) * audioLevel
             drawCircle(color.copy(alpha = alpha.coerceIn(0f, 0.25f)), glowRadius, center)
         }
+    }
+}
+
+@Composable
+private fun BarsVisualizer(
+    modifier: Modifier,
+    audioLevel: Float,
+    color: Color,
+    wavePhase: Float
+) {
+    Canvas(modifier = modifier) {
+        val center = Offset(size.width / 2, size.height / 2)
+        val baseRadius = min(size.width, size.height) / 2
+        
+        val barCount = 48
+        for (i in 0 until barCount) {
+            val angle = (i.toFloat() / barCount) * 360f
+            val radians = Math.toRadians(angle.toDouble()).toFloat()
+            
+            val normalizedAngle = (angle + wavePhase) % 360f
+            val dynamicLevel = audioLevel * (0.3f + 0.7f * abs(sin(normalizedAngle * 0.03f + wavePhase * 0.015f)))
+            val barHeight = baseRadius * 0.35f * dynamicLevel
+            
+            val innerRadius = baseRadius * 0.35f
+            val barWidth = (2.5f * (1f + dynamicLevel * 0.5f)).dp.toPx()
+            
+            drawLine(
+                color = color.copy(alpha = (0.4f + dynamicLevel * 0.5f).coerceIn(0f, 1f)),
+                start = Offset(center.x + innerRadius * cos(radians), center.y + innerRadius * sin(radians)),
+                end = Offset(center.x + (innerRadius + barHeight) * cos(radians), center.y + (innerRadius + barHeight) * sin(radians)),
+                strokeWidth = barWidth, cap = StrokeCap.Round
+            )
+        }
+        
+        val innerGlowRadius = baseRadius * 0.3f
+        drawCircle(
+            color.copy(alpha = audioLevel * 0.15f),
+            innerGlowRadius,
+            center
+        )
+    }
+}
+
+@Composable
+private fun WaveVisualizer(
+    modifier: Modifier,
+    audioLevel: Float,
+    color: Color,
+    wavePhase: Float
+) {
+    Canvas(modifier = modifier) {
+        val center = Offset(size.width / 2, size.height / 2)
+        val baseRadius = min(size.width, size.height) / 2
+        
+        for (waveIndex in 0..2) {
+            val waveRadius = baseRadius * (0.4f + waveIndex * 0.15f)
+            val waveAmplitude = baseRadius * 0.08f * audioLevel * (1f - waveIndex * 0.25f)
+            
+            val path = androidx.compose.ui.graphics.Path()
+            val segments = 72
+            
+            for (i in 0..segments) {
+                val angle = (i.toFloat() / segments) * 360f
+                val radians = Math.toRadians(angle.toDouble()).toFloat()
+                
+                val waveOffset = waveAmplitude * sin(angle * 0.1f + wavePhase * 0.05f + waveIndex * 1.5f)
+                val r = waveRadius + waveOffset
+                
+                val x = center.x + r * cos(radians)
+                val y = center.y + r * sin(radians)
+                
+                if (i == 0) path.moveTo(x, y) else path.lineTo(x, y)
+            }
+            path.close()
+            
+            drawPath(
+                path = path,
+                color = color.copy(alpha = (0.5f - waveIndex * 0.12f) * audioLevel),
+                style = Stroke(width = (3f - waveIndex * 0.5f).dp.toPx())
+            )
+        }
+        
+        drawCircle(
+            color.copy(alpha = audioLevel * 0.2f),
+            baseRadius * 0.25f,
+            center
+        )
+    }
+}
+
+@Composable
+private fun GlowVisualizer(
+    modifier: Modifier,
+    audioLevel: Float,
+    color: Color,
+    glowAlpha: Float,
+    breathScale: Float
+) {
+    Canvas(modifier = modifier.graphicsLayer { scaleX = breathScale; scaleY = breathScale }) {
+        val center = Offset(size.width / 2, size.height / 2)
+        val baseRadius = min(size.width, size.height) / 2
+        
+        repeat(12) { i ->
+            val progress = i.toFloat() / 12
+            val glowRadius = baseRadius * (0.2f + progress * 0.6f) * (1f + audioLevel * 0.3f)
+            val alpha = (glowAlpha * (1f - progress * 0.8f) * audioLevel).coerceIn(0f, 0.35f)
+            drawCircle(color.copy(alpha = alpha), glowRadius, center)
+        }
+        
+        val coreRadius = baseRadius * 0.15f * (1f + audioLevel * 0.5f)
+        drawCircle(color.copy(alpha = 0.6f * audioLevel), coreRadius, center)
+        
+        val rayCount = 8
+        for (i in 0 until rayCount) {
+            val angle = (i.toFloat() / rayCount) * 360f
+            val radians = Math.toRadians(angle.toDouble()).toFloat()
+            val rayLength = baseRadius * 0.4f * audioLevel
+            
+            drawLine(
+                color = color.copy(alpha = 0.3f * audioLevel),
+                start = center,
+                end = Offset(center.x + rayLength * cos(radians), center.y + rayLength * sin(radians)),
+                strokeWidth = 2.dp.toPx(), cap = StrokeCap.Round
+            )
+        }
+    }
+}
+
+@Composable
+private fun ParticlesVisualizer(
+    modifier: Modifier,
+    audioLevel: Float,
+    color: Color,
+    wavePhase: Float
+) {
+    Canvas(modifier = modifier) {
+        val center = Offset(size.width / 2, size.height / 2)
+        val baseRadius = min(size.width, size.height) / 2
+        
+        val particleCount = 36
+        for (i in 0 until particleCount) {
+            val baseAngle = (i.toFloat() / particleCount) * 360f
+            val angleOffset = sin(wavePhase * 0.02f + i * 0.5f) * 15f
+            val angle = baseAngle + angleOffset
+            val radians = Math.toRadians(angle.toDouble()).toFloat()
+            
+            val distanceVariation = sin(wavePhase * 0.03f + i * 0.3f) * 0.3f
+            val baseDistance = baseRadius * (0.35f + distanceVariation)
+            val distance = baseDistance * (0.5f + audioLevel * 0.8f)
+            
+            val x = center.x + distance * cos(radians)
+            val y = center.y + distance * sin(radians)
+            
+            val particleSize = (3f + audioLevel * 4f * abs(sin(wavePhase * 0.02f + i))).dp.toPx()
+            val alpha = (0.3f + audioLevel * 0.5f).coerceIn(0f, 1f)
+            
+            drawCircle(
+                color = color.copy(alpha = alpha),
+                radius = particleSize / 2,
+                center = Offset(x, y)
+            )
+            
+            val trailLength = baseRadius * 0.1f * audioLevel
+            drawLine(
+                color = color.copy(alpha = alpha * 0.5f),
+                start = Offset(x, y),
+                end = Offset(
+                    x - trailLength * cos(radians),
+                    y - trailLength * sin(radians)
+                ),
+                strokeWidth = 1.5.dp.toPx(), cap = StrokeCap.Round
+            )
+        }
+        
+        drawCircle(
+            color.copy(alpha = audioLevel * 0.15f),
+            baseRadius * 0.2f,
+            center
+        )
     }
 }
 
@@ -619,8 +1015,7 @@ private fun ConnectingAnimation(
 private fun MainControlButton(
     isRunning: Boolean,
     isConnecting: Boolean,
-    onClick: () -> Unit,
-    strings: AppStrings
+    onClick: () -> Unit
 ) {
     val buttonSize by animateDpAsState(
         targetValue = if (isRunning) 72.dp else 64.dp,
@@ -650,39 +1045,28 @@ private fun MainControlButton(
         label = "Glow"
     )
 
-    Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        Box(contentAlignment = Alignment.Center, modifier = Modifier.size(buttonSize + 16.dp).graphicsLayer { scaleX = pressScale; scaleY = pressScale }) {
-            if (isRunning) {
-                Canvas(modifier = Modifier.size(buttonSize + 14.dp)) {
-                    drawCircle(buttonColor.copy(alpha = glowAlpha * 0.35f), size.width / 2)
-                }
-            }
-            
-            FloatingActionButton(
-                onClick = onClick,
-                interactionSource = interactionSource,
-                containerColor = buttonColor,
-                modifier = Modifier.size(buttonSize),
-                shape = CircleShape,
-                elevation = FloatingActionButtonDefaults.elevation(defaultElevation = if (isPressed) 2.dp else 6.dp)
-            ) {
-                Icon(
-                    if (isConnecting) Icons.Rounded.Refresh else if (isRunning) Icons.Rounded.Stop else Icons.Rounded.PlayArrow,
-                    null, modifier = Modifier.size(28.dp), tint = Color.White
-                )
+    Box(
+        contentAlignment = Alignment.Center,
+        modifier = Modifier.size(buttonSize + 16.dp).graphicsLayer { scaleX = pressScale; scaleY = pressScale }
+    ) {
+        if (isRunning) {
+            Canvas(modifier = Modifier.size(buttonSize + 14.dp)) {
+                drawCircle(buttonColor.copy(alpha = glowAlpha * 0.35f), size.width / 2)
             }
         }
         
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            Text(
-                when { isRunning -> strings.statusStreaming; isConnecting -> strings.statusConnecting; else -> strings.clickToStart },
-                style = MaterialTheme.typography.labelMedium, color = buttonColor, fontWeight = FontWeight.Medium
+        FloatingActionButton(
+            onClick = onClick,
+            interactionSource = interactionSource,
+            containerColor = buttonColor,
+            modifier = Modifier.size(buttonSize),
+            shape = CircleShape,
+            elevation = FloatingActionButtonDefaults.elevation(defaultElevation = if (isPressed) 2.dp else 6.dp)
+        ) {
+            Icon(
+                if (isConnecting) Icons.Rounded.Refresh else if (isRunning) Icons.Rounded.Stop else Icons.Rounded.PlayArrow,
+                null, modifier = Modifier.size(28.dp), tint = Color.White
             )
-            if (isRunning) {
-                Surface(shape = RoundedCornerShape(3.dp), color = buttonColor) {
-                    Text("LIVE", style = MaterialTheme.typography.labelSmall, color = Color.White, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 5.dp, vertical = 1.dp))
-                }
-            }
         }
     }
 }

@@ -504,6 +504,37 @@ fun SettingsContent(section: SettingsSection, viewModel: MainViewModel) {
                             )
                         }
                     }
+
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = cardOpacity * 0.5f))
+                    ) {
+                        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                            Text(strings.visualizerStyleLabel, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary)
+                            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                items(VisualizerStyle.entries) { style ->
+                                    FilterChip(
+                                        selected = state.visualizerStyle == style,
+                                        onClick = { viewModel.setVisualizerStyle(style) },
+                                        label = { 
+                                            Text(when(style) {
+                                                VisualizerStyle.Ripple -> strings.visualizerStyleRipple
+                                                VisualizerStyle.Bars -> strings.visualizerStyleBars
+                                                VisualizerStyle.Wave -> strings.visualizerStyleWave
+                                                VisualizerStyle.Glow -> strings.visualizerStyleGlow
+                                                VisualizerStyle.Particles -> strings.visualizerStyleParticles
+                                            }) 
+                                        },
+                                        leadingIcon = {
+                                            if (state.visualizerStyle == style) Icon(Icons.Filled.Check, null, modifier = Modifier.size(16.dp)) else null
+                                        }
+                                    )
+                                }
+                            }
+                        }
+                    }
                     
                     Box(
                         modifier = Modifier
