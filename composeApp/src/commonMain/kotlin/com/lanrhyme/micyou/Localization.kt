@@ -182,6 +182,8 @@ data class AppStrings(
     val pluginSyncWarningMessage: String = "The following cross-platform plugins are not installed on both devices:",
     val missingOn: String = "Missing on",
     val pluginSyncDismiss: String = "Dismiss",
+    val pluginOpenWindow: String = "Open Window",
+    val pluginSettings: String = "Settings",
 
     // BlackHole (macOS virtual audio)
     val blackHoleInstalled: String = "BlackHole is installed, please configure in System Settings",

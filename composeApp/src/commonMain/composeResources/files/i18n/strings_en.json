@@ -190,5 +190,11 @@
   "pluginImportSuccess": "Plugin imported successfully",
   "pluginImportFailed": "Failed to import plugin: %s",
   "pluginEnabled": "Plugin enabled",
-  "pluginDisabled": "Plugin disabled"
+  "pluginDisabled": "Plugin disabled",
+  "pluginSyncWarningTitle": "Plugin Sync Warning",
+  "pluginSyncWarningMessage": "The following cross-platform plugins are not installed on both devices:",
+  "missingOn": "Missing on",
+  "pluginSyncDismiss": "Dismiss",
+  "pluginOpenWindow": "Open Window",
+  "pluginSettings": "Settings"
 }

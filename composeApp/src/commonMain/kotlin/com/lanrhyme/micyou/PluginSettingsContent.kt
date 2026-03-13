@@ -262,7 +262,7 @@ private fun PluginItem(
                             Spacer(Modifier.width(8.dp))
                             Icon(
                                 Icons.Rounded.Warning,
-                                contentDescription = "Incompatible",
+                                contentDescription = null,
                                 modifier = Modifier.size(16.dp),
                                 tint = MaterialTheme.colorScheme.error
                             )
@@ -282,7 +282,7 @@ private fun PluginItem(
                             onClick = onOpenWindow,
                             modifier = Modifier.height(32.dp)
                         ) {
-                            Text("打开窗口", style = MaterialTheme.typography.labelMedium)
+                            Text(strings.pluginOpenWindow, style = MaterialTheme.typography.labelMedium)
                         }
                     }
                     
@@ -331,7 +331,7 @@ private fun PluginItem(
                         onClick = onOpenSettings,
                         modifier = Modifier.height(32.dp)
                     ) {
-                        Text("配置", style = MaterialTheme.typography.labelMedium)
+                        Text(strings.pluginSettings, style = MaterialTheme.typography.labelMedium)
                     }
                 }
                 

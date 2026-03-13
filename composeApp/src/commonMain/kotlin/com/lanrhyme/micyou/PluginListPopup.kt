@@ -127,6 +127,7 @@ private fun PluginPopupItem(
     hasUI: Boolean,
     onClick: () -> Unit
 ) {
+    val strings = LocalAppStrings.current
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = MaterialTheme.shapes.medium,
@@ -169,7 +170,7 @@ private fun PluginPopupItem(
                 IconButton(onClick = onClick, modifier = Modifier.size(36.dp)) {
                     Icon(
                         Icons.Default.OpenInNew,
-                        contentDescription = "Open",
+                        contentDescription = null,
                         modifier = Modifier.size(18.dp),
                         tint = MaterialTheme.colorScheme.primary
                     )

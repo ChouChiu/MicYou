@@ -175,7 +175,7 @@
   "floatingWindowLabel": "悬浮窗",
   "floatingWindowDesc": "显示一个带有音频可视化的小型置顶窗口",
   "useSystemTitleBarLabel": "系统标题栏",
-  "useSystemTitleBarDesc": "使用系统原生窗口装饰替代自定义标题栏"
+  "useSystemTitleBarDesc": "使用系统原生窗口装饰替代自定义标题栏",
   "firstLaunchTitle": "欢迎使用 MicYou",
   "firstLaunchMessage": "您似乎是第一次使用 MicYou。本应用可以将您的 Android 设备通过 Wi-Fi、蓝牙或 USB 变成电脑的高质量麦克风。",
   "firstLaunchGuideButton": "让我看看使用指南",
@@ -196,5 +196,11 @@
   "pluginImportSuccess": "插件导入成功",
   "pluginImportFailed": "插件导入失败: %s",
   "pluginEnabled": "插件已启用",
-  "pluginDisabled": "插件已禁用"
+  "pluginDisabled": "插件已禁用",
+  "pluginSyncWarningTitle": "插件同步警告",
+  "pluginSyncWarningMessage": "以下跨平台插件未在双方设备上安装：",
+  "missingOn": "缺少于",
+  "pluginSyncDismiss": "忽略",
+  "pluginOpenWindow": "打开窗口",
+  "pluginSettings": "配置"
 }
