@@ -9,8 +9,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
@@ -108,11 +106,11 @@ fun PluginSettingsContent(
                 }
             }
         } else {
-            LazyColumn(
-                modifier = Modifier.weight(1f, fill = false),
+            Column(
+                modifier = Modifier.fillMaxWidth(),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                items(state.plugins, key = { it.manifest.id }) { pluginInfo ->
+                state.plugins.forEach { pluginInfo ->
                     PluginItem(
                         pluginInfo = pluginInfo,
                         currentPlatform = platform.type,
