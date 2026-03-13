@@ -13,7 +13,6 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
 import androidx.compose.animation.slideInHorizontally
-import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
@@ -240,8 +239,15 @@ fun DesktopSettings(
         }
     }
 
+    // 当使用自定义背景时，Surface 使用透明色
+    val surfaceColor = if (state.backgroundSettings.hasCustomBackground) {
+        Color.Transparent
+    } else {
+        MaterialTheme.colorScheme.surface
+    }
+    
     Surface(
-        color = MaterialTheme.colorScheme.surface,
+        color = surfaceColor,
         contentColor = MaterialTheme.colorScheme.onSurface,
         modifier = Modifier
             .fillMaxSize()
@@ -627,6 +633,13 @@ fun MobileLayout(viewModel: MainViewModel, onClose: () -> Unit, hazeState: HazeS
         visible = true
     }
     
+    // 当使用自定义背景时，Scaffold 使用透明色
+    val scaffoldColor = if (state.backgroundSettings.hasCustomBackground) {
+        Color.Transparent
+    } else {
+        MaterialTheme.colorScheme.surface
+    }
+    
     Scaffold(
         topBar = {
             TopAppBar(
@@ -637,39 +650,56 @@ fun MobileLayout(viewModel: MainViewModel, onClose: () -> Unit, hazeState: HazeS
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surface.copy(alpha = cardOpacity)
+                    containerColor = if (state.backgroundSettings.hasCustomBackground) {
+                        MaterialTheme.colorScheme.surface.copy(alpha = 0.7f)
+                    } else {
+                        MaterialTheme.colorScheme.surface.copy(alpha = cardOpacity)
+                    }
                 )
             )
         },
-        containerColor = MaterialTheme.colorScheme.surface
+        containerColor = scaffoldColor
     ) { padding ->
         LazyColumn(
             modifier = Modifier.padding(padding).padding(horizontal = 16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             itemsIndexed(SettingsSection.entries.toList()) { index, section ->
-                var cardVisible by remember { mutableStateOf(false) }
-                LaunchedEffect(visible) {
-                    if (visible) {
-                        delay(100L + index * 80L)
-                        cardVisible = true
-                    }
+                // 使用 graphicsLayer 实现动画，不会阻塞滚动
+                var cardAnimated by remember { mutableStateOf(false) }
+                LaunchedEffect(Unit) {
+                    delay(100L + index * 80L)
+                    cardAnimated = true
                 }
                 
-                AnimatedVisibility(
-                    visible = cardVisible,
-                    enter = slideInVertically(
-                        initialOffsetY = { 60 },
-                        animationSpec = tween(400, easing = EasingFunctions.EaseOutExpo)
-                    ) + fadeIn(tween(350)) +
-                    scaleIn(
-                        initialScale = 0.9f,
-                        animationSpec = spring(
-                            dampingRatio = Spring.DampingRatioMediumBouncy,
-                            stiffness = Spring.StiffnessLow
-                        )
+                val cardAlpha by animateFloatAsState(
+                    targetValue = if (cardAnimated) 1f else 0f,
+                    animationSpec = tween(350, easing = EasingFunctions.EaseOutExpo),
+                    label = "cardAlpha"
+                )
+                val cardScale by animateFloatAsState(
+                    targetValue = if (cardAnimated) 1f else 0.9f,
+                    animationSpec = spring(
+                        dampingRatio = Spring.DampingRatioMediumBouncy,
+                        stiffness = Spring.StiffnessLow
                     ),
-                    exit = fadeOut(tween(200))
+                    label = "cardScale"
+                )
+                val cardOffsetY by animateFloatAsState(
+                    targetValue = if (cardAnimated) 0f else 60f,
+                    animationSpec = tween(400, easing = EasingFunctions.EaseOutExpo),
+                    label = "cardOffsetY"
+                )
+                
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .graphicsLayer {
+                            this.alpha = cardAlpha
+                            this.scaleX = cardScale
+                            this.scaleY = cardScale
+                            translationY = cardOffsetY
+                        }
                 ) {
                     if (state.backgroundSettings.enableHazeEffect && hazeState != null) {
                         HazeSurface(

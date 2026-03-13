@@ -7,7 +7,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 
 @Composable
-actual fun PluginImportDialog(
+fun PluginImportDialog(
     isImporting: Boolean,
     onDismiss: () -> Unit,
     onImport: (filePath: String) -> Unit

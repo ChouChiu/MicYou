@@ -30,7 +30,11 @@ class AndroidPluginManagerProvider : PluginManagerProvider {
     override fun getPluginUIProvider(pluginId: String): PluginUIProvider? = null
 }
 
-actual fun createPluginManager(pluginsDirPath: String): PluginManagerProvider? {
+actual fun createPluginManager(
+    pluginsDirPath: String,
+    appLanguageProvider: () -> String,
+    appStringProvider: ((String) -> String)?
+): PluginManagerProvider? {
     return null
 }
 
