@@ -1,13 +1,31 @@
 package com.lanrhyme.micyou
 
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsHoveredAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -17,10 +35,11 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.automirrored.rounded.TextSnippet
-import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Info
@@ -50,7 +69,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Slider
-import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
@@ -68,7 +86,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.text.font.FontWeight
@@ -76,6 +96,9 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
+import com.lanrhyme.micyou.animation.EasingFunctions
+import dev.chrisbanes.haze.HazeState
+import kotlinx.coroutines.delay
 
 /**
  * 可复用的设置项容器组件
@@ -179,6 +202,31 @@ fun DesktopSettings(
     val strings = LocalAppStrings.current
     val isDarkTheme = isDarkThemeActive(state.themeMode)
     val forcePureBlackBackground = state.oledPureBlack && isDarkTheme
+    
+    // 页面进入动画状态
+    var visible by remember { mutableStateOf(false) }
+    var contentVisible by remember { mutableStateOf(false) }
+    
+    val scale by animateFloatAsState(
+        targetValue = if (visible) 1f else 0.9f,
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioMediumBouncy,
+            stiffness = Spring.StiffnessLow
+        ),
+        label = "pageScale"
+    )
+    
+    val alpha by animateFloatAsState(
+        targetValue = if (visible) 1f else 0f,
+        animationSpec = tween(400, easing = EasingFunctions.EaseOutExpo),
+        label = "pageAlpha"
+    )
+    
+    LaunchedEffect(Unit) {
+        visible = true
+        delay(100)
+        contentVisible = true
+    }
 
     LaunchedEffect(state.snackbarMessage) {
         state.snackbarMessage?.let {
@@ -187,19 +235,26 @@ fun DesktopSettings(
         }
     }
 
-    Scaffold(
-        snackbarHost = { SnackbarHost(snackbarHostState) },
-        containerColor = MaterialTheme.colorScheme.surface,
-        contentColor = MaterialTheme.colorScheme.onSurface
-    ) { _ ->
+    Surface(
+        color = MaterialTheme.colorScheme.surface,
+        contentColor = MaterialTheme.colorScheme.onSurface,
+        modifier = Modifier
+            .fillMaxSize()
+            .graphicsLayer {
+                scaleX = scale
+                scaleY = scale
+                this.alpha = alpha
+            }
+    ) {
         Box(modifier = Modifier.fillMaxSize()) {
             CustomBackground(
                 settings = state.backgroundSettings,
                 modifier = Modifier.fillMaxSize(),
                 forcePureBlackBackground = forcePureBlackBackground
             )
+            
             if (platform.type == PlatformType.Desktop) {
-                DesktopLayout(viewModel, onClose)
+                DesktopLayout(viewModel, onClose, contentVisible)
             } else {
                 MobileLayout(viewModel, onClose)
             }
@@ -208,45 +263,68 @@ fun DesktopSettings(
 }
 
 @Composable
-fun DesktopLayout(viewModel: MainViewModel, onClose: () -> Unit) {
+fun DesktopLayout(viewModel: MainViewModel, onClose: () -> Unit, contentVisible: Boolean) {
     var currentSection by remember { mutableStateOf(SettingsSection.General) }
     val strings = LocalAppStrings.current
     val state by viewModel.uiState.collectAsState()
     val cardOpacity = state.backgroundSettings.cardOpacity
     
+    val hazeState = if (state.backgroundSettings.enableHazeEffect && state.backgroundSettings.hasCustomBackground) {
+        rememberHazeState()
+    } else null
+    
     Row(
-        modifier = Modifier.fillMaxSize()
+        modifier = Modifier.fillMaxSize().padding(16.dp),
+        horizontalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        Surface(
-            modifier = Modifier.width(220.dp).fillMaxSize(),
-            color = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = cardOpacity * 0.9f)
+        // 左侧导航栏 - 使用 AnimatedCard 样式
+        AnimatedSettingsCard(
+            visible = contentVisible,
+            delayMillis = 100,
+            modifier = Modifier.width(240.dp).fillMaxHeight(),
+            cardOpacity = cardOpacity,
+            hazeState = hazeState,
+            enableHaze = state.backgroundSettings.enableHazeEffect,
+            containerColor = MaterialTheme.colorScheme.surfaceContainer
         ) {
             LazyColumn(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(top = 12.dp, bottom = 12.dp),
-                verticalArrangement = Arrangement.spacedBy(2.dp)
+                    .padding(top = 16.dp, bottom = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp)
             ) {
                 item {
                     Row(
-                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        IconButton(onClick = onClose, modifier = Modifier.size(36.dp)) {
-                            Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = strings.close, modifier = Modifier.size(20.dp))
+                        IconButton(
+                            onClick = onClose,
+                            modifier = Modifier.size(40.dp)
+                        ) {
+                            Icon(
+                                Icons.AutoMirrored.Rounded.ArrowBack,
+                                contentDescription = strings.close,
+                                modifier = Modifier.size(22.dp)
+                            )
                         }
                         Text(
                             strings.settingsTitle,
                             style = MaterialTheme.typography.titleLarge,
-                            color = MaterialTheme.colorScheme.primary
+                            color = MaterialTheme.colorScheme.primary,
+                            fontWeight = FontWeight.Medium
                         )
                     }
                 }
                 
-                item { HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp)) }
+                item { 
+                    HorizontalDivider(
+                        modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp)
+                    ) 
+                }
                 
-                items(SettingsSection.entries.toList()) { section ->
+                itemsIndexed(SettingsSection.entries.toList()) { index, section ->
                     val icon = when (section) {
                         SettingsSection.General -> Icons.Rounded.Settings
                         SettingsSection.Appearance -> Icons.Rounded.Palette
@@ -256,54 +334,279 @@ fun DesktopLayout(viewModel: MainViewModel, onClose: () -> Unit) {
                     }
                     val isSelected = currentSection == section
                     
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 12.dp, vertical = 3.dp)
-                            .clip(MaterialTheme.shapes.extraLarge)
-                            .clickable { currentSection = section }
-                            .background(
-                                if (isSelected) MaterialTheme.colorScheme.secondaryContainer
-                                else Color.Transparent
-                            )
-                            .animateContentSize()
-                            .padding(horizontal = 16.dp, vertical = 12.dp),
-                        verticalAlignment = Alignment.CenterVertically
+                    // 导航项进入动画
+                    var navItemVisible by remember { mutableStateOf(false) }
+                    LaunchedEffect(contentVisible) {
+                        if (contentVisible) {
+                            delay(150L + index * 50L)
+                            navItemVisible = true
+                        }
+                    }
+                    
+                    AnimatedVisibility(
+                        visible = navItemVisible,
+                        enter = slideInHorizontally(
+                            initialOffsetX = { -30 },
+                            animationSpec = tween(300, easing = EasingFunctions.EaseOutExpo)
+                        ) + fadeIn(tween(300)),
+                        exit = fadeOut(tween(200))
                     ) {
-                        Icon(
-                            imageVector = icon,
-                            contentDescription = section.getLabel(strings),
-                            modifier = Modifier.size(22.dp),
-                            tint = if (isSelected) MaterialTheme.colorScheme.primary
-                            else MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        Spacer(modifier = Modifier.width(12.dp))
-                        Text(
-                            section.getLabel(strings),
-                            style = MaterialTheme.typography.bodyLarge,
-                            fontWeight = if (isSelected) FontWeight.Medium else FontWeight.Normal,
-                            color = if (isSelected) MaterialTheme.colorScheme.onSecondaryContainer
-                            else MaterialTheme.colorScheme.onSurfaceVariant
+                        NavigationItem(
+                            icon = icon,
+                            label = section.getLabel(strings),
+                            isSelected = isSelected,
+                            onClick = { currentSection = section }
                         )
                     }
                 }
             }
         }
         
-        Surface(
-            modifier = Modifier.fillMaxSize(),
-            color = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = cardOpacity * 0.7f)
+        // 右侧内容区 - 使用 AnimatedCard 样式
+        AnimatedSettingsCard(
+            visible = contentVisible,
+            delayMillis = 200,
+            modifier = Modifier.weight(1f).fillMaxHeight(),
+            cardOpacity = cardOpacity,
+            hazeState = hazeState,
+            enableHaze = state.backgroundSettings.enableHazeEffect,
+            containerColor = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.7f)
         ) {
-            Column(modifier = Modifier.padding(top = 12.dp, start = 20.dp, end = 20.dp, bottom = 20.dp)) {
-                Text(currentSection.getLabel(strings), style = MaterialTheme.typography.headlineMedium)
-                Spacer(Modifier.height(8.dp))
+            Column(
+                modifier = Modifier.padding(top = 20.dp, start = 24.dp, end = 24.dp, bottom = 24.dp)
+            ) {
+                // 标题区域
+                AnimatedContent(
+                    targetState = currentSection,
+                    transitionSpec = {
+                        (slideInHorizontally(
+                            initialOffsetX = { if (targetState.ordinal > initialState.ordinal) 50 else -50 },
+                            animationSpec = tween(300, easing = EasingFunctions.EaseOutExpo)
+                        ) + fadeIn(tween(250))) togetherWith
+                        (slideOutHorizontally(
+                            targetOffsetX = { if (targetState.ordinal > initialState.ordinal) -50 else 50 },
+                            animationSpec = tween(250, easing = EasingFunctions.EaseInExpo)
+                        ) + fadeOut(tween(200)))
+                    },
+                    label = "sectionTitle"
+                ) { section ->
+                    Text(
+                        section.getLabel(strings),
+                        style = MaterialTheme.typography.headlineMedium,
+                        color = MaterialTheme.colorScheme.primary,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
                 
-                LazyColumn(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                    item {
-                         SettingsContent(currentSection, viewModel)
+                Spacer(Modifier.height(16.dp))
+                
+                // 内容区域 - 使用 AnimatedContent 实现页面切换动画
+                AnimatedContent(
+                    targetState = currentSection,
+                    transitionSpec = {
+                        val direction = if (targetState.ordinal > initialState.ordinal) 1 else -1
+                        (slideInHorizontally(
+                            initialOffsetX = { direction * 100 },
+                            animationSpec = tween(350, easing = EasingFunctions.EaseOutExpo)
+                        ) + fadeIn(tween(300))) togetherWith
+                        (slideOutHorizontally(
+                            targetOffsetX = { -direction * 100 },
+                            animationSpec = tween(300, easing = EasingFunctions.EaseInExpo)
+                        ) + fadeOut(tween(250)))
+                    },
+                    label = "sectionContent"
+                ) { section ->
+                    LazyColumn(
+                        verticalArrangement = Arrangement.spacedBy(12.dp),
+                        modifier = Modifier.fillMaxSize()
+                    ) {
+                        item {
+                            SettingsContent(section, viewModel)
+                        }
                     }
                 }
             }
+        }
+    }
+}
+
+/**
+ * 导航项组件 - 带选中动画效果
+ */
+@Composable
+private fun NavigationItem(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    label: String,
+    isSelected: Boolean,
+    onClick: () -> Unit
+) {
+    val interactionSource = remember { MutableInteractionSource() }
+    val isHovered by interactionSource.collectIsHoveredAsState()
+    
+    val backgroundColor by animateColorAsState(
+        targetValue = when {
+            isSelected -> MaterialTheme.colorScheme.secondaryContainer
+            isHovered -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+            else -> Color.Transparent
+        },
+        animationSpec = tween(200),
+        label = "navBackground"
+    )
+    
+    val scale by animateFloatAsState(
+        targetValue = if (isSelected) 1.02f else 1f,
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioMediumBouncy,
+            stiffness = Spring.StiffnessLow
+        ),
+        label = "navScale"
+    )
+    
+    val iconTint by animateColorAsState(
+        targetValue = when {
+            isSelected -> MaterialTheme.colorScheme.primary
+            isHovered -> MaterialTheme.colorScheme.onSurface
+            else -> MaterialTheme.colorScheme.onSurfaceVariant
+        },
+        animationSpec = tween(200),
+        label = "navIconTint"
+    )
+    
+    val textColor by animateColorAsState(
+        targetValue = when {
+            isSelected -> MaterialTheme.colorScheme.onSecondaryContainer
+            isHovered -> MaterialTheme.colorScheme.onSurface
+            else -> MaterialTheme.colorScheme.onSurfaceVariant
+        },
+        animationSpec = tween(200),
+        label = "navTextColor"
+    )
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 12.dp, vertical = 2.dp)
+            .scale(scale)
+            .clip(MaterialTheme.shapes.extraLarge)
+            .clickable(
+                interactionSource = interactionSource,
+                indication = null,
+                onClick = onClick
+            )
+            .background(backgroundColor)
+            .animateContentSize()
+            .padding(horizontal = 20.dp, vertical = 14.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = label,
+            modifier = Modifier.size(24.dp),
+            tint = iconTint
+        )
+        Spacer(modifier = Modifier.width(14.dp))
+        Text(
+            label,
+            style = MaterialTheme.typography.bodyLarge,
+            fontWeight = if (isSelected) FontWeight.Medium else FontWeight.Normal,
+            color = textColor
+        )
+        
+        // 选中指示器
+        androidx.compose.animation.AnimatedVisibility(
+            visible = isSelected,
+            enter = scaleIn(
+                initialScale = 0f,
+                animationSpec = spring(
+                    dampingRatio = Spring.DampingRatioMediumBouncy,
+                    stiffness = Spring.StiffnessLow
+                )
+            ) + fadeIn(tween(200)),
+            exit = scaleOut(
+                targetScale = 0f,
+                animationSpec = tween(150)
+            ) + fadeOut(tween(100))
+        ) {
+            Spacer(modifier = Modifier.weight(1f))
+            Box(
+                modifier = Modifier
+                    .size(8.dp)
+                    .background(
+                        MaterialTheme.colorScheme.primary,
+                        shape = RoundedCornerShape(50)
+                    )
+            )
+        }
+    }
+}
+
+/**
+ * 设置页面卡片组件 - 带进入动画
+ */
+@Composable
+private fun AnimatedSettingsCard(
+    visible: Boolean,
+    delayMillis: Int,
+    modifier: Modifier = Modifier,
+    containerColor: Color = MaterialTheme.colorScheme.surfaceContainer,
+    shape: RoundedCornerShape = RoundedCornerShape(20.dp),
+    cardOpacity: Float = 1f,
+    hazeState: HazeState? = null,
+    enableHaze: Boolean = false,
+    content: @Composable () -> Unit
+) {
+    val cardAlpha by animateFloatAsState(
+        targetValue = if (visible) 1f else 0f,
+        animationSpec = tween(400, delayMillis, easing = EasingFunctions.EaseOutExpo),
+        label = "cardAlpha"
+    )
+    val cardScale by animateFloatAsState(
+        targetValue = if (visible) 1f else 0.9f,
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioMediumBouncy,
+            stiffness = Spring.StiffnessLow,
+            visibilityThreshold = 0.001f
+        ),
+        label = "cardScale"
+    )
+    val cardOffsetY by animateFloatAsState(
+        targetValue = if (visible) 0f else 40f,
+        animationSpec = tween(500, delayMillis, easing = EasingFunctions.EaseOutExpo),
+        label = "cardOffsetY"
+    )
+
+    if (enableHaze && hazeState != null) {
+        HazeCard(
+            hazeState = hazeState,
+            enabled = true,
+            hazeColor = containerColor.copy(alpha = cardOpacity * 0.7f),
+            modifier = modifier
+                .graphicsLayer {
+                    this.alpha = cardAlpha
+                    this.scaleX = cardScale
+                    this.scaleY = cardScale
+                    translationY = cardOffsetY
+                }
+                .clip(shape)
+        ) {
+            content()
+        }
+    } else {
+        Card(
+            modifier = modifier
+                .graphicsLayer {
+                    this.alpha = cardAlpha
+                    this.scaleX = cardScale
+                    this.scaleY = cardScale
+                    translationY = cardOffsetY
+                },
+            colors = CardDefaults.cardColors(
+                containerColor = containerColor.copy(alpha = cardOpacity)
+            ),
+            shape = shape,
+            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        ) {
+            content()
         }
     }
 }
@@ -315,6 +618,13 @@ fun MobileLayout(viewModel: MainViewModel, onClose: () -> Unit) {
     val state by viewModel.uiState.collectAsState()
     val cardOpacity = state.backgroundSettings.cardOpacity
     
+    // 页面进入动画
+    var visible by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) {
+        delay(100)
+        visible = true
+    }
+    
     Scaffold(
         topBar = {
             TopAppBar(
@@ -325,7 +635,7 @@ fun MobileLayout(viewModel: MainViewModel, onClose: () -> Unit) {
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surface
+                    containerColor = MaterialTheme.colorScheme.surface.copy(alpha = cardOpacity)
                 )
             )
         },
@@ -333,20 +643,48 @@ fun MobileLayout(viewModel: MainViewModel, onClose: () -> Unit) {
     ) { padding ->
         LazyColumn(
             modifier = Modifier.padding(padding).padding(horizontal = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(24.dp)
+            verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            SettingsSection.entries.forEach { section ->
-                item {
+            itemsIndexed(SettingsSection.entries.toList()) { index, section ->
+                var cardVisible by remember { mutableStateOf(false) }
+                LaunchedEffect(visible) {
+                    if (visible) {
+                        delay(100L + index * 80L)
+                        cardVisible = true
+                    }
+                }
+                
+                AnimatedVisibility(
+                    visible = cardVisible,
+                    enter = slideInVertically(
+                        initialOffsetY = { 60 },
+                        animationSpec = tween(400, easing = EasingFunctions.EaseOutExpo)
+                    ) + fadeIn(tween(350)) +
+                    scaleIn(
+                        initialScale = 0.9f,
+                        animationSpec = spring(
+                            dampingRatio = Spring.DampingRatioMediumBouncy,
+                            stiffness = Spring.StiffnessLow
+                        )
+                    ),
+                    exit = fadeOut(tween(200))
+                ) {
                     Card(
                         modifier = Modifier.fillMaxWidth(),
                         colors = CardDefaults.cardColors(
                             containerColor = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = cardOpacity)
                         ),
-                        shape = MaterialTheme.shapes.medium
+                        shape = RoundedCornerShape(16.dp),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
                     ) {
                         Column(modifier = Modifier.padding(16.dp)) {
-                            Text(section.getLabel(strings), style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary)
-                            Spacer(Modifier.height(8.dp))
+                            Text(
+                                section.getLabel(strings),
+                                style = MaterialTheme.typography.titleMedium,
+                                color = MaterialTheme.colorScheme.primary,
+                                fontWeight = FontWeight.Medium
+                            )
+                            Spacer(Modifier.height(12.dp))
                             SettingsContent(section, viewModel)
                         }
                     }
@@ -786,118 +1124,11 @@ fun SettingsContent(section: SettingsSection, viewModel: MainViewModel) {
                                 colors = ListItemDefaults.colors(containerColor = Color.Transparent)
                             )
                         }
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clip(MaterialTheme.shapes.medium)
-                                .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = cardOpacity * 0.5f))
-                        ) {
-                            ListItem(
-                                headlineContent = { Text(strings.androidAudioProcessingLabel) },
-                                supportingContent = { Text(strings.androidAudioProcessingDesc) },
-                                trailingContent = {
-                                    Switch(
-                                        checked = state.enableNS || state.enableAGC,
-                                        onCheckedChange = { viewModel.setAndroidAudioProcessing(it) }
-                                    )
-                                },
-                                modifier = Modifier.clickable { viewModel.setAndroidAudioProcessing(!(state.enableNS || state.enableAGC)) },
-                                colors = ListItemDefaults.colors(containerColor = Color.Transparent)
-                            )
-                        }
-
-                        // Android 音频源选择 (下拉菜单)
-                        val audioSources = listOf(
-                            "Mic" to "默认",
-                            "VoiceCommunication" to "VoIP",
-                            "VoiceRecognition" to "语音识别",
-                            "VoicePerformance" to "低延迟",
-                            "Camcorder" to "摄像机",
-                            "Unprocessed" to "原始音频"
-                        )
-                        val currentSourceLabel = audioSources.find { it.first == state.androidAudioSourceName }?.second ?: "默认"
-
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clip(MaterialTheme.shapes.medium)
-                                .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = cardOpacity * 0.5f))
-                        ) {
-                            var expanded by remember { mutableStateOf(false) }
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(horizontal = 16.dp, vertical = 12.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.SpaceBetween
-                            ) {
-                                // 左侧标题
-                                Text("音频源", style = MaterialTheme.typography.titleSmall)
-                                // 右侧下拉按钮
-                                Box {
-                                    TextButton(onClick = { expanded = true }) {
-                                        Text(currentSourceLabel, style = MaterialTheme.typography.bodyMedium)
-                                        Icon(Icons.Default.ArrowDropDown, contentDescription = "展开")
-                                    }
-                                    DropdownMenu(
-                                        expanded = expanded,
-                                        onDismissRequest = { expanded = false },
-                                        modifier = Modifier.width(200.dp)
-                                    ) {
-                                        audioSources.forEach { (sourceName, label) ->
-                                            DropdownMenuItem(
-                                                text = { Text(label) },
-                                                onClick = {
-                                                    viewModel.setAndroidAudioSource(sourceName)
-                                                    expanded = false
-                                                },
-                                                trailingIcon = {
-                                                    if (state.androidAudioSourceName == sourceName) {
-                                                        Icon(Icons.Default.Check, contentDescription = "已选择")
-                                                    }
-                                                }
-                                            )
-                                        }
-                                    }
-                                }
-                            }
-                        }
                     }
                 } else {
+                    // Desktop audio settings
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        // 1. 增益 (Amplifier) - 第一行显示
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clip(MaterialTheme.shapes.medium)
-                                .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = cardOpacity * 0.5f))
-                        ) {
-                            Row(
-                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp).fillMaxWidth(),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(12.dp)
-                            ) {
-                                Text(strings.gainLabel, style = MaterialTheme.typography.titleSmall)
-
-                                Slider(
-                                    value = state.amplification,
-                                    onValueChange = { viewModel.setAmplification(it) },
-                                    valueRange = -50.0f..50.0f,
-                                    modifier = Modifier.weight(1f)
-                                )
-
-                                // 固定宽度避免进度条左右移动，"-50 dB" 是最宽的情况
-                                val gainText = if (state.amplification >= 0) "+${state.amplification.toInt()} dB" else "${state.amplification.toInt()} dB"
-                                Text(
-                                    gainText,
-                                    style = MaterialTheme.typography.bodySmall,
-                                    modifier = Modifier.width(60.dp),
-                                    textAlign = TextAlign.End
-                                )
-                            }
-                        }
-
-                        // 2. 降噪 (Noise Suppression)
+                        // 1. 降噪开关
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -906,56 +1137,52 @@ fun SettingsContent(section: SettingsSection, viewModel: MainViewModel) {
                         ) {
                             ListItem(
                                 headlineContent = { Text(strings.enableNsLabel) },
-                                trailingContent = { Switch(checked = state.enableNS, onCheckedChange = { viewModel.setEnableNS(it) }) },
+                                trailingContent = { 
+                                    Switch(
+                                        checked = state.enableNS, 
+                                        onCheckedChange = { viewModel.setEnableNS(it) }
+                                    ) 
+                                },
                                 modifier = Modifier.clickable { viewModel.setEnableNS(!state.enableNS) },
                                 colors = ListItemDefaults.colors(containerColor = Color.Transparent)
                             )
                         }
                         if (state.enableNS) {
-                            var showNsTypeHelp by remember { mutableStateOf(false) }
-
                             Box(
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .clip(MaterialTheme.shapes.medium)
                                     .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = cardOpacity * 0.5f))
                             ) {
-                                ListItem(
-                                    headlineContent = { Text(strings.nsTypeLabel) },
-                                    trailingContent = {
-                                        Row(verticalAlignment = Alignment.CenterVertically) {
-                                            IconButton(onClick = { showNsTypeHelp = true }) {
-                                                Icon(
-                                                    imageVector = Icons.Default.Info,
-                                                    contentDescription = "降噪算法说明",
-                                                )
-                                            }
-
-                                            var expanded by remember { mutableStateOf(false) }
-                                            Box {
-                                                TextButton(onClick = { expanded = true }) { Text(state.nsType.name) }
-                                                DropdownMenu(
-                                                    expanded = expanded,
-                                                    onDismissRequest = { expanded = false },
-                                                    shape = MaterialTheme.shapes.medium
-                                                ) {
-                                                    NoiseReductionType.entries.forEach { type ->
-                                                        DropdownMenuItem(text = { Text(type.name) }, onClick = { viewModel.setNsType(type); expanded = false })
-                                                    }
-                                                }
-                                            }
+                                Column(modifier = Modifier.padding(16.dp)) {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Text(strings.nsTypeLabel, style = MaterialTheme.typography.bodyMedium)
+                                        var showHelp by remember { mutableStateOf(false) }
+                                        IconButton(onClick = { showHelp = true }) {
+                                            Icon(Icons.Default.Info, contentDescription = "Help", modifier = Modifier.size(20.dp))
                                         }
-                                    },
-                                    colors = ListItemDefaults.colors(containerColor = Color.Transparent)
-                                )
-                            }
-
-                            if (showNsTypeHelp) {
-                                NoiseReductionHelpPopup(onDismiss = { showNsTypeHelp = false })
+                                        if (showHelp) {
+                                            NoiseReductionHelpPopup(onDismiss = { showHelp = false })
+                                        }
+                                    }
+                                    LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                        items(NoiseReductionType.entries) { type ->
+                                            FilterChip(
+                                                selected = state.nsType == type,
+                                                onClick = { viewModel.setNsType(type) },
+                                                label = { Text(type.label) }
+                                            )
+                                        }
+                                    }
+                                }
                             }
                         }
 
-                        // 3. 去混响 (Dereverb)
+                        // 2. 去混响
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -964,7 +1191,12 @@ fun SettingsContent(section: SettingsSection, viewModel: MainViewModel) {
                         ) {
                             ListItem(
                                 headlineContent = { Text(strings.enableDereverbLabel) },
-                                trailingContent = { Switch(checked = state.enableDereverb, onCheckedChange = { viewModel.setEnableDereverb(it) }) },
+                                trailingContent = { 
+                                    Switch(
+                                        checked = state.enableDereverb, 
+                                        onCheckedChange = { viewModel.setEnableDereverb(it) }
+                                    ) 
+                                },
                                 modifier = Modifier.clickable { viewModel.setEnableDereverb(!state.enableDereverb) },
                                 colors = ListItemDefaults.colors(containerColor = Color.Transparent)
                             )
@@ -977,11 +1209,53 @@ fun SettingsContent(section: SettingsSection, viewModel: MainViewModel) {
                                     .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = cardOpacity * 0.5f))
                             ) {
                                 Column(modifier = Modifier.padding(16.dp)) {
-                                    Text("${strings.dereverbLevelLabel}: ${((state.dereverbLevel * 100).toInt()) / 100f}", style = MaterialTheme.typography.bodySmall)
+                                    Text("${strings.dereverbLevelLabel}: ${(state.dereverbLevel * 100).toInt()}%", style = MaterialTheme.typography.bodySmall)
                                     Slider(
                                         value = state.dereverbLevel,
                                         onValueChange = { viewModel.setDereverbLevel(it) },
-                                        valueRange = 0.0f..1.0f
+                                        valueRange = 0f..1f
+                                    )
+                                }
+                            }
+                        }
+
+                        // 3. 放大器
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(MaterialTheme.shapes.medium)
+                                .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = cardOpacity * 0.5f))
+                        ) {
+                            ListItem(
+                                headlineContent = { Text(strings.amplificationLabel) },
+                                supportingContent = { Text(strings.gainLabel) },
+                                trailingContent = { 
+                                    Switch(
+                                        checked = state.amplification > 0, 
+                                        onCheckedChange = { enabled ->
+                                            viewModel.setAmplification(if (enabled) 2.0f else 0f)
+                                        }
+                                    ) 
+                                },
+                                modifier = Modifier.clickable { 
+                                    viewModel.setAmplification(if (state.amplification > 0) 0f else 2.0f)
+                                },
+                                colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+                            )
+                        }
+                        if (state.amplification > 0) {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(MaterialTheme.shapes.medium)
+                                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = cardOpacity * 0.5f))
+                            ) {
+                                Column(modifier = Modifier.padding(16.dp)) {
+                                    Text("${strings.amplificationMultiplierLabel}: ${state.amplification}x", style = MaterialTheme.typography.bodySmall)
+                                    Slider(
+                                        value = state.amplification,
+                                        onValueChange = { viewModel.setAmplification(it) },
+                                        valueRange = 0.5f..5f
                                     )
                                 }
                             }
@@ -996,7 +1270,12 @@ fun SettingsContent(section: SettingsSection, viewModel: MainViewModel) {
                         ) {
                             ListItem(
                                 headlineContent = { Text(strings.enableAgcLabel) },
-                                trailingContent = { Switch(checked = state.enableAGC, onCheckedChange = { viewModel.setEnableAGC(it) }) },
+                                trailingContent = { 
+                                    Switch(
+                                        checked = state.enableAGC, 
+                                        onCheckedChange = { viewModel.setEnableAGC(it) }
+                                    ) 
+                                },
                                 modifier = Modifier.clickable { viewModel.setEnableAGC(!state.enableAGC) },
                                 colors = ListItemDefaults.colors(containerColor = Color.Transparent)
                             )
@@ -1028,7 +1307,12 @@ fun SettingsContent(section: SettingsSection, viewModel: MainViewModel) {
                         ) {
                             ListItem(
                                 headlineContent = { Text(strings.enableVadLabel) },
-                                trailingContent = { Switch(checked = state.enableVAD, onCheckedChange = { viewModel.setEnableVAD(it) }) },
+                                trailingContent = { 
+                                    Switch(
+                                        checked = state.enableVAD, 
+                                        onCheckedChange = { viewModel.setEnableVAD(it) }
+                                    ) 
+                                },
                                 modifier = Modifier.clickable { viewModel.setEnableVAD(!state.enableVAD) },
                                 colors = ListItemDefaults.colors(containerColor = Color.Transparent)
                             )
@@ -1343,7 +1627,7 @@ private fun AlgorithmInfoItem(
                 title,
                 style = MaterialTheme.typography.titleMedium,
                 color = MaterialTheme.colorScheme.onSurface,
-                fontWeight = androidx.compose.ui.text.font.FontWeight.Bold
+                fontWeight = FontWeight.Bold
             )
             if (recommendation.isNotEmpty()) {
                 Spacer(modifier = Modifier.width(8.dp))
