@@ -20,14 +20,26 @@ class PluginManager(private val pluginsDir: File) {
 
     init {
         pluginsDir.mkdirs()
+        cleanupTempDirectories()
         scanPlugins()
+    }
+
+    private fun cleanupTempDirectories() {
+        pluginsDir.listFiles()?.filter { it.isDirectory && it.name.startsWith("temp_") }?.forEach { tempDir ->
+            try {
+                tempDir.deleteRecursively()
+                Logger.d("PluginManager", "Cleaned up temp directory: ${tempDir.name}")
+            } catch (e: Exception) {
+                Logger.w("PluginManager", "Failed to cleanup temp directory: ${tempDir.name}: ${e.message}")
+            }
+        }
     }
 
     fun scanPlugins() {
         Logger.i("PluginManager", "Scanning plugins in: ${pluginsDir.absolutePath}")
         val pluginList = mutableListOf<PluginInfo>()
-        val dirs = pluginsDir.listFiles()?.filter { it.isDirectory }
-        Logger.d("PluginManager", "Found ${dirs?.size ?: 0} directories")
+        val dirs = pluginsDir.listFiles()?.filter { it.isDirectory && !it.name.startsWith("temp_") }
+        Logger.d("PluginManager", "Found ${dirs?.size ?: 0} plugin directories")
         dirs?.forEach { pluginDir ->
             Logger.d("PluginManager", "Checking directory: ${pluginDir.name}")
             val manifestFile = File(pluginDir, "plugin.json")
@@ -125,8 +137,11 @@ class PluginManager(private val pluginsDir: File) {
                 Logger.w("PluginManager", "renameTo failed, using copy instead")
                 targetDir.mkdirs()
                 pluginRootDir.copyRecursively(targetDir, overwrite = true)
+                pluginRootDir.deleteRecursively()
             }
-            tempDir.deleteRecursively()
+            if (tempDir.exists() && tempDir != targetDir && tempDir != pluginRootDir) {
+                tempDir.deleteRecursively()
+            }
             Logger.i("PluginManager", "Moved plugin to: ${targetDir.absolutePath}")
             scanPlugins()
 
