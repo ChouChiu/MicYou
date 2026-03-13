@@ -21,6 +21,9 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import androidx.compose.material.icons.automirrored.rounded.TextSnippet
+import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Code
@@ -36,6 +39,7 @@ import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LargeTopAppBar
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
@@ -48,6 +52,8 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.VerticalDivider
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -61,6 +67,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -69,17 +76,95 @@ import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import kotlinx.coroutines.delay
-import micyou.composeapp.generated.resources.Res
-import micyou.composeapp.generated.resources.icon_compass
-import micyou.composeapp.generated.resources.icon_creative
-import micyou.composeapp.generated.resources.icon_file
-import micyou.composeapp.generated.resources.icon_microphone
-import micyou.composeapp.generated.resources.icon_palette
-import micyou.composeapp.generated.resources.icon_planet
-import micyou.composeapp.generated.resources.icon_settings
-import micyou.composeapp.generated.resources.icon_star_fall
-import micyou.composeapp.generated.resources.icon_star_fall_mini
-import org.jetbrains.compose.resources.painterResource
+import androidx.compose.material.icons.rounded.Description
+import androidx.compose.material.icons.rounded.Info
+import androidx.compose.material.icons.rounded.Language
+import androidx.compose.material.icons.rounded.Mic
+import androidx.compose.material.icons.rounded.Palette
+import androidx.compose.material.icons.rounded.People
+import androidx.compose.material.icons.rounded.Person
+import androidx.compose.material.icons.rounded.Settings
+
+/**
+ * 可复用的设置项容器组件
+ */
+@Composable
+private fun SettingsItemContainer(
+    modifier: Modifier = Modifier,
+    cardOpacity: Float = 1f,
+    onClick: (() -> Unit)? = null,
+    content: @Composable () -> Unit
+) {
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .clip(MaterialTheme.shapes.medium)
+            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = cardOpacity * 0.5f))
+            .then(if (onClick != null) Modifier.clickable { onClick() } else Modifier)
+    ) {
+        content()
+    }
+}
+
+/**
+ * 可复用的设置项开关组件
+ */
+@Composable
+private fun SettingsSwitchItem(
+    headline: String,
+    supporting: String? = null,
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit,
+    cardOpacity: Float = 1f
+) {
+    SettingsItemContainer(
+        cardOpacity = cardOpacity,
+        onClick = { onCheckedChange(!checked) }
+    ) {
+        ListItem(
+            headlineContent = { Text(headline) },
+            supportingContent = supporting?.let { { Text(it) } },
+            trailingContent = { Switch(checked = checked, onCheckedChange = onCheckedChange) },
+            modifier = Modifier.clickable { onCheckedChange(!checked) },
+            colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+        )
+    }
+}
+
+/**
+ * 可复用的设置项下拉选择组件
+ */
+@Composable
+private fun <T> SettingsDropdownItem(
+    headline: String,
+    selected: T,
+    options: List<T>,
+    labelProvider: (T) -> String,
+    onSelect: (T) -> Unit,
+    cardOpacity: Float = 1f
+) {
+    var expanded by remember { mutableStateOf(false) }
+    SettingsItemContainer(cardOpacity = cardOpacity) {
+        ListItem(
+            headlineContent = { Text(headline) },
+            trailingContent = {
+                Box {
+                    TextButton(onClick = { expanded = true }) { Text(labelProvider(selected)) }
+                    DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }, shape = MaterialTheme.shapes.medium) {
+                        options.forEach { option ->
+                            DropdownMenuItem(
+                                text = { Text(labelProvider(option)) },
+                                onClick = { onSelect(option); expanded = false },
+                                trailingIcon = { if (selected == option) Icon(Icons.Default.Check, contentDescription = null) }
+                            )
+                        }
+                    }
+                }
+            },
+            colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+        )
+    }
+}
 
 enum class SettingsSection {
     General,
@@ -99,6 +184,8 @@ fun DesktopSettings(
     val snackbarHostState = remember { SnackbarHostState() }
     val state by viewModel.uiState.collectAsState()
     val strings = LocalAppStrings.current
+    val isDarkTheme = isDarkThemeActive(state.themeMode)
+    val forcePureBlackBackground = state.oledPureBlack && isDarkTheme
 
     LaunchedEffect(state.snackbarMessage) {
         state.snackbarMessage?.let {
@@ -111,11 +198,12 @@ fun DesktopSettings(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         containerColor = MaterialTheme.colorScheme.surface,
         contentColor = MaterialTheme.colorScheme.onSurface
-    ) { padding ->
-        Box(modifier = Modifier.padding(padding)) {
+    ) { _ ->
+        Box(modifier = Modifier.fillMaxSize()) {
             CustomBackground(
                 settings = state.backgroundSettings,
-                modifier = Modifier.fillMaxSize()
+                modifier = Modifier.fillMaxSize(),
+                forcePureBlackBackground = forcePureBlackBackground
             )
             if (platform.type == PlatformType.Desktop) {
                 DesktopLayout(viewModel, onClose)
@@ -133,7 +221,9 @@ fun DesktopLayout(viewModel: MainViewModel, onClose: () -> Unit) {
     val state by viewModel.uiState.collectAsState()
     val cardOpacity = state.backgroundSettings.cardOpacity
     
-    Row(modifier = Modifier.fillMaxSize()) {
+    Row(
+        modifier = Modifier.fillMaxSize()
+    ) {
         Surface(
             modifier = Modifier.width(220.dp).fillMaxSize(),
             color = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = cardOpacity * 0.9f)
@@ -141,26 +231,34 @@ fun DesktopLayout(viewModel: MainViewModel, onClose: () -> Unit) {
             LazyColumn(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(vertical = 24.dp),
+                    .padding(top = 0.dp, bottom = 12.dp),
                 verticalArrangement = Arrangement.spacedBy(2.dp)
             ) {
                 item {
-                    Text(
-                        strings.settingsTitle,
-                        style = MaterialTheme.typography.titleLarge,
-                        color = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.padding(horizontal = 24.dp, vertical = 16.dp)
-                    )
+                    Row(
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        IconButton(onClick = onClose, modifier = Modifier.size(36.dp)) {
+                            Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = strings.close, modifier = Modifier.size(20.dp))
+                        }
+                        Text(
+                            strings.settingsTitle,
+                            style = MaterialTheme.typography.titleLarge,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    }
                 }
                 
                 item { HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp)) }
                 
                 items(SettingsSection.entries.toList()) { section ->
                     val icon = when (section) {
-                        SettingsSection.General -> painterResource(Res.drawable.icon_settings)
-                        SettingsSection.Appearance -> painterResource(Res.drawable.icon_palette)
-                        SettingsSection.Audio -> painterResource(Res.drawable.icon_microphone)
-                        SettingsSection.About -> painterResource(Res.drawable.icon_compass)
+                        SettingsSection.General -> Icons.Rounded.Settings
+                        SettingsSection.Appearance -> Icons.Rounded.Palette
+                        SettingsSection.Audio -> Icons.Rounded.Mic
+                        SettingsSection.About -> Icons.Rounded.Info
                     }
                     val isSelected = currentSection == section
                     
@@ -168,7 +266,7 @@ fun DesktopLayout(viewModel: MainViewModel, onClose: () -> Unit) {
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(horizontal = 12.dp, vertical = 3.dp)
-                            .clip(RoundedCornerShape(10.dp))
+                            .clip(MaterialTheme.shapes.extraLarge)
                             .clickable { currentSection = section }
                             .background(
                                 if (isSelected) MaterialTheme.colorScheme.secondaryContainer
@@ -179,7 +277,7 @@ fun DesktopLayout(viewModel: MainViewModel, onClose: () -> Unit) {
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Icon(
-                            painter = icon,
+                            imageVector = icon,
                             contentDescription = section.getLabel(strings),
                             modifier = Modifier.size(22.dp),
                             tint = if (isSelected) MaterialTheme.colorScheme.primary
@@ -198,16 +296,13 @@ fun DesktopLayout(viewModel: MainViewModel, onClose: () -> Unit) {
             }
         }
         
-        VerticalDivider()
-        
         Surface(
-            modifier = Modifier.fillMaxSize().padding(24.dp),
-            color = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = cardOpacity * 0.7f),
-            shape = RoundedCornerShape(16.dp)
+            modifier = Modifier.fillMaxSize(),
+            color = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = cardOpacity * 0.7f)
         ) {
-            Column(modifier = Modifier.padding(20.dp)) {
+            Column(modifier = Modifier.padding(top = 8.dp, start = 20.dp, end = 20.dp, bottom = 20.dp)) {
                 Text(currentSection.getLabel(strings), style = MaterialTheme.typography.headlineMedium)
-                Spacer(Modifier.height(24.dp))
+                Spacer(Modifier.height(8.dp))
                 
                 LazyColumn(verticalArrangement = Arrangement.spacedBy(16.dp)) {
                     item {
@@ -219,41 +314,51 @@ fun DesktopLayout(viewModel: MainViewModel, onClose: () -> Unit) {
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MobileLayout(viewModel: MainViewModel, onClose: () -> Unit) {
     val strings = LocalAppStrings.current
     val state by viewModel.uiState.collectAsState()
     val cardOpacity = state.backgroundSettings.cardOpacity
     
-    LazyColumn(
-        modifier = Modifier.padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(24.dp)
-    ) {
-        item {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(strings.settingsTitle, style = MaterialTheme.typography.headlineSmall, modifier = Modifier.weight(1f))
-                IconButton(onClick = onClose) {
-                    Icon(Icons.Default.Close, strings.close)
-                }
-            }
-        }
-        
-        SettingsSection.entries.forEach { section ->
-            item {
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = cardOpacity)
-                    ),
-                    shape = RoundedCornerShape(16.dp)
-                ) {
-                    Column(modifier = Modifier.padding(16.dp)) {
-                        Text(section.getLabel(strings), style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary)
-                        Spacer(Modifier.height(8.dp))
-                        SettingsContent(section, viewModel)
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text(strings.settingsTitle) },
+                navigationIcon = {
+                    IconButton(onClick = onClose) {
+                        Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = strings.close)
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.surface
+                )
+            )
+        },
+        containerColor = MaterialTheme.colorScheme.surface
+    ) { padding ->
+        LazyColumn(
+            modifier = Modifier.padding(padding).padding(horizontal = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(24.dp)
+        ) {
+            SettingsSection.entries.forEach { section ->
+                item {
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = cardOpacity)
+                        ),
+                        shape = MaterialTheme.shapes.medium
+                    ) {
+                        Column(modifier = Modifier.padding(16.dp)) {
+                            Text(section.getLabel(strings), style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary)
+                            Spacer(Modifier.height(8.dp))
+                            SettingsContent(section, viewModel)
+                        }
                     }
                 }
             }
+            item { Spacer(Modifier.height(16.dp)) }
         }
     }
 }
@@ -282,175 +387,85 @@ fun SettingsContent(section: SettingsSection, viewModel: MainViewModel) {
         when (section) {
             SettingsSection.General -> {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(12.dp))
-                            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = cardOpacity * 0.5f))
-                    ) {
-                        ListItem(
-                            headlineContent = { Text(strings.languageLabel) },
-                            trailingContent = {
-                                var expanded by remember { mutableStateOf(false) }
-                                Box {
-                                    TextButton(onClick = { expanded = true }) { 
-                                        Text(state.language.label) 
-                                    }
-                                    DropdownMenu(
-                                        expanded = expanded,
-                                        onDismissRequest = { expanded = false },
-                                        shape = RoundedCornerShape(16.dp)
-                                    ) {
-                                        AppLanguage.entries.forEach { lang ->
-                                            DropdownMenuItem(
-                                                text = { Text(lang.label) },
-                                                onClick = {
-                                                    viewModel.setLanguage(lang)
-                                                    expanded = false
-                                                },
-                                                trailingIcon = {
-                                                    if (state.language == lang) {
-                                                        Icon(Icons.Default.Check, contentDescription = null)
-                                                    }
-                                                }
-                                            )
-                                        }
-                                    }
-                                }
-                            },
-                            colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+                    SettingsDropdownItem(
+                        headline = strings.languageLabel,
+                        selected = state.language,
+                        options = AppLanguage.entries.toList(),
+                        labelProvider = { it.label },
+                        onSelect = { viewModel.setLanguage(it) },
+                        cardOpacity = cardOpacity
+                    )
+
+                    if (platform.type == PlatformType.Android) {
+                        SettingsSwitchItem(
+                            headline = strings.enableStreamingNotificationLabel,
+                            checked = state.enableStreamingNotification,
+                            onCheckedChange = { viewModel.setEnableStreamingNotification(it) },
+                            cardOpacity = cardOpacity
+                        )
+
+                        SettingsSwitchItem(
+                            headline = strings.keepScreenOnLabel,
+                            supporting = strings.keepScreenOnDesc,
+                            checked = state.keepScreenOn,
+                            onCheckedChange = { viewModel.setKeepScreenOn(it) },
+                            cardOpacity = cardOpacity
                         )
                     }
 
-                    if (platform.type == PlatformType.Android) {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clip(RoundedCornerShape(12.dp))
-                                .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = cardOpacity * 0.5f))
-                        ) {
-                            ListItem(
-                                headlineContent = { Text(strings.enableStreamingNotificationLabel) },
-                                trailingContent = {
-                                    Switch(
-                                        checked = state.enableStreamingNotification,
-                                        onCheckedChange = { viewModel.setEnableStreamingNotification(it) }
-                                    )
-                                },
-                                modifier = Modifier.clickable { viewModel.setEnableStreamingNotification(!state.enableStreamingNotification) },
-                                colors = ListItemDefaults.colors(containerColor = Color.Transparent)
-                            )
-                        }
+                    if (platform.type == PlatformType.Desktop) {
+                        SettingsSwitchItem(
+                            headline = strings.autoStartLabel,
+                            supporting = strings.autoStartDesc,
+                            checked = state.autoStart,
+                            onCheckedChange = { viewModel.setAutoStart(it) },
+                            cardOpacity = cardOpacity
+                        )
+                        SettingsDropdownItem(
+                            headline = strings.closeActionLabel,
+                            selected = state.closeAction,
+                            options = CloseAction.entries.toList(),
+                            labelProvider = { action ->
+                                when (action) {
+                                    CloseAction.Prompt -> strings.closeActionPrompt
+                                    CloseAction.Minimize -> strings.closeActionMinimize
+                                    CloseAction.Exit -> strings.closeActionExit
+                                }
+                            },
+                            onSelect = { viewModel.setCloseAction(it) },
+                            cardOpacity = cardOpacity
+                        )
+                        SettingsSwitchItem(
+                            headline = strings.pocketModeLabel,
+                            supporting = strings.pocketModeDesc,
+                            checked = state.pocketMode,
+                            onCheckedChange = { viewModel.setPocketMode(it) },
+                            cardOpacity = cardOpacity
+                        )
+                        SettingsSwitchItem(
+                            headline = strings.useSystemTitleBarLabel,
+                            supporting = strings.useSystemTitleBarDesc,
+                            checked = state.useSystemTitleBar,
+                            onCheckedChange = { viewModel.setUseSystemTitleBar(it) },
+                            cardOpacity = cardOpacity
+                        )
+                        SettingsSwitchItem(
+                            headline = strings.floatingWindowLabel,
+                            supporting = strings.floatingWindowDesc,
+                            checked = state.floatingWindowEnabled,
+                            onCheckedChange = { viewModel.setFloatingWindowEnabled(it) },
+                            cardOpacity = cardOpacity
+                        )
                     }
 
-                    if (platform.type == PlatformType.Desktop) {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clip(RoundedCornerShape(12.dp))
-                                .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = cardOpacity * 0.5f))
-                        ) {
-                            ListItem(
-                                headlineContent = { Text(strings.autoStartLabel) },
-                                supportingContent = { Text(strings.autoStartDesc) },
-                                trailingContent = {
-                                    Switch(
-                                        checked = state.autoStart,
-                                        onCheckedChange = { viewModel.setAutoStart(it) }
-                                    )
-                                },
-                                modifier = Modifier.clickable { viewModel.setAutoStart(!state.autoStart) },
-                                colors = ListItemDefaults.colors(containerColor = Color.Transparent)
-                            )
-                        }
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clip(RoundedCornerShape(12.dp))
-                                .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = cardOpacity * 0.5f))
-                        ) {
-                            ListItem(
-                                headlineContent = { Text(strings.closeActionLabel) },
-                                trailingContent = {
-                                    var expanded by remember { mutableStateOf(false) }
-                                    Box {
-                                        TextButton(onClick = { expanded = true }) {
-                                            Text(when (state.closeAction) {
-                                                CloseAction.Prompt -> strings.closeActionPrompt
-                                                CloseAction.Minimize -> strings.closeActionMinimize
-                                                CloseAction.Exit -> strings.closeActionExit
-                                            })
-                                        }
-                                        DropdownMenu(
-                                            expanded = expanded,
-                                            onDismissRequest = { expanded = false },
-                                            shape = RoundedCornerShape(16.dp)
-                                        ) {
-                                            CloseAction.entries.forEach { action ->
-                                                DropdownMenuItem(
-                                                    text = {
-                                                        Text(when (action) {
-                                                            CloseAction.Prompt -> strings.closeActionPrompt
-                                                            CloseAction.Minimize -> strings.closeActionMinimize
-                                                            CloseAction.Exit -> strings.closeActionExit
-                                                        })
-                                                    },
-                                                    onClick = {
-                                                        viewModel.setCloseAction(action)
-                                                        expanded = false
-                                                    },
-                                                    trailingIcon = {
-                                                        if (state.closeAction == action) {
-                                                            Icon(Icons.Default.Check, contentDescription = null)
-                                                        }
-                                                    }
-                                                )
-                                            }
-                                        }
-                                    }
-                                },
-                                colors = ListItemDefaults.colors(containerColor = Color.Transparent)
-                            )
-                        }
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clip(RoundedCornerShape(12.dp))
-                                .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = cardOpacity * 0.5f))
-                        ) {
-                            ListItem(
-                                headlineContent = { Text(strings.pocketModeLabel) },
-                                supportingContent = { Text(strings.pocketModeDesc) },
-                                trailingContent = {
-                                    Switch(
-                                        checked = state.pocketMode,
-                                        onCheckedChange = { viewModel.setPocketMode(it) }
-                                    )
-                                },
-                                modifier = Modifier.clickable { viewModel.setPocketMode(!state.pocketMode) },
-                                colors = ListItemDefaults.colors(containerColor = Color.Transparent)
-                            )
-                        }
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clip(RoundedCornerShape(12.dp))
-                                .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = cardOpacity * 0.5f))
-                        ) {
-                            ListItem(
-                                headlineContent = { Text(strings.floatingWindowLabel) },
-                                supportingContent = { Text(strings.floatingWindowDesc) },
-                                trailingContent = {
-                                    Switch(
-                                        checked = state.floatingWindowEnabled,
-                                        onCheckedChange = { viewModel.setFloatingWindowEnabled(it) }
-                                    )
-                                },
-                                modifier = Modifier.clickable { viewModel.setFloatingWindowEnabled(!state.floatingWindowEnabled) },
-                                colors = ListItemDefaults.colors(containerColor = Color.Transparent)
-                            )
-                        }
-                    }
+                    // Auto check update toggle (all platforms)
+                    SettingsSwitchItem(
+                        headline = strings.autoCheckUpdateLabel,
+                        supporting = strings.autoCheckUpdateDesc,
+                        checked = state.autoCheckUpdate,
+                        onCheckedChange = { viewModel.setAutoCheckUpdate(it) },
+                        cardOpacity = cardOpacity
+                    )
                 }
             }
             SettingsSection.Appearance -> {
@@ -458,7 +473,7 @@ fun SettingsContent(section: SettingsSection, viewModel: MainViewModel) {
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .clip(RoundedCornerShape(12.dp))
+                            .clip(MaterialTheme.shapes.medium)
                             .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = cardOpacity * 0.5f))
                     ) {
                         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -484,50 +499,74 @@ fun SettingsContent(section: SettingsSection, viewModel: MainViewModel) {
                         }
                     }
 
-                    if (platform.type == PlatformType.Android) {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clip(RoundedCornerShape(12.dp))
-                                .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = cardOpacity * 0.5f))
-                        ) {
-                            ListItem(
-                                headlineContent = { Text(strings.useDynamicColorLabel) },
-                                trailingContent = {
-                                    Switch(
-                                        checked = state.useDynamicColor,
-                                        onCheckedChange = { viewModel.setUseDynamicColor(it) }
-                                    )
-                                },
-                                modifier = Modifier.clickable { viewModel.setUseDynamicColor(!state.useDynamicColor) },
-                                colors = ListItemDefaults.colors(containerColor = Color.Transparent)
-                            )
-                        }
+                    // 动态取色选项：Android 和 Windows 支持
+                    if (platform.type == PlatformType.Android || isDynamicColorSupported()) {
+                        SettingsSwitchItem(
+                            headline = strings.useDynamicColorLabel,
+                            supporting = strings.useDynamicColorDesc,
+                            checked = state.useDynamicColor,
+                            onCheckedChange = { viewModel.setUseDynamicColor(it) },
+                            cardOpacity = cardOpacity
+                        )
                     }
+
+                    SettingsSwitchItem(
+                        headline = strings.oledPureBlackLabel,
+                        supporting = strings.oledPureBlackDesc,
+                        checked = state.oledPureBlack,
+                        onCheckedChange = { viewModel.setOledPureBlack(it) },
+                        cardOpacity = cardOpacity
+                    )
 
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .clip(RoundedCornerShape(12.dp))
+                            .clip(MaterialTheme.shapes.medium)
                             .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = cardOpacity * 0.5f))
                     ) {
                         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                             Text(strings.themeColorLabel, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary)
                             val isSeedColorEnabled = !state.useDynamicColor
+                            // 当开启动态取色时，显示当前实际应用的主题主色（动态颜色）
+                            val displayColor = if (state.useDynamicColor) {
+                                MaterialTheme.colorScheme.primary.toArgb().toLong() and 0xFFFFFFFF
+                            } else {
+                                state.seedColor
+                            }
                             ColorSelectorWithPicker(
-                                selectedColor = state.seedColor,
+                                selectedColor = displayColor,
                                 presetColors = seedColors,
                                 onColorSelected = { viewModel.setSeedColor(it) },
                                 enabled = isSeedColorEnabled,
+                                disabledHint = strings.dynamicColorEnabledHint,
                                 modifier = Modifier.fillMaxWidth()
                             )
+                        }
+
+                        // 开启动态取色时，显示遮罩覆盖整个框
+                        if (state.useDynamicColor) {
+                            Box(
+                                modifier = Modifier
+                                    .matchParentSize()
+                                    .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.85f))
+                                    .clickable(enabled = false) { },
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = strings.dynamicColorEnabledHint,
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                    textAlign = TextAlign.Center,
+                                    modifier = Modifier.padding(horizontal = 24.dp)
+                                )
+                            }
                         }
                     }
 
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .clip(RoundedCornerShape(12.dp))
+                            .clip(MaterialTheme.shapes.medium)
                             .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = cardOpacity * 0.5f))
                     ) {
                         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -559,7 +598,7 @@ fun SettingsContent(section: SettingsSection, viewModel: MainViewModel) {
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .clip(RoundedCornerShape(12.dp))
+                            .clip(MaterialTheme.shapes.medium)
                             .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = cardOpacity * 0.5f))
                     ) {
                         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -647,7 +686,7 @@ fun SettingsContent(section: SettingsSection, viewModel: MainViewModel) {
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .clip(RoundedCornerShape(12.dp))
+                                .clip(MaterialTheme.shapes.medium)
                                 .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = cardOpacity * 0.5f))
                         ) {
                             ListItem(
@@ -669,7 +708,7 @@ fun SettingsContent(section: SettingsSection, viewModel: MainViewModel) {
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .clip(RoundedCornerShape(12.dp))
+                                .clip(MaterialTheme.shapes.medium)
                                 .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = cardOpacity * 0.5f))
                         ) {
                             ListItem(
@@ -684,7 +723,7 @@ fun SettingsContent(section: SettingsSection, viewModel: MainViewModel) {
                                         DropdownMenu(
                                             expanded = expanded,
                                             onDismissRequest = { expanded = false },
-                                            shape = RoundedCornerShape(16.dp)
+                                            shape = MaterialTheme.shapes.medium
                                         ) {
                                             SampleRate.entries.forEach { rate ->
                                                 DropdownMenuItem(text = { Text("${rate.value} Hz") }, onClick = { viewModel.setSampleRate(rate); expanded = false })
@@ -698,7 +737,7 @@ fun SettingsContent(section: SettingsSection, viewModel: MainViewModel) {
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .clip(RoundedCornerShape(12.dp))
+                                .clip(MaterialTheme.shapes.medium)
                                 .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = cardOpacity * 0.5f))
                         ) {
                             ListItem(
@@ -713,7 +752,7 @@ fun SettingsContent(section: SettingsSection, viewModel: MainViewModel) {
                                         DropdownMenu(
                                             expanded = expanded,
                                             onDismissRequest = { expanded = false },
-                                            shape = RoundedCornerShape(16.dp)
+                                            shape = MaterialTheme.shapes.medium
                                         ) {
                                             ChannelCount.entries.forEach { count ->
                                                 DropdownMenuItem(text = { Text(count.label) }, onClick = { viewModel.setChannelCount(count); expanded = false })
@@ -727,7 +766,7 @@ fun SettingsContent(section: SettingsSection, viewModel: MainViewModel) {
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .clip(RoundedCornerShape(12.dp))
+                                .clip(MaterialTheme.shapes.medium)
                                 .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = cardOpacity * 0.5f))
                         ) {
                             ListItem(
@@ -742,7 +781,7 @@ fun SettingsContent(section: SettingsSection, viewModel: MainViewModel) {
                                         DropdownMenu(
                                             expanded = expanded,
                                             onDismissRequest = { expanded = false },
-                                            shape = RoundedCornerShape(16.dp)
+                                            shape = MaterialTheme.shapes.medium
                                         ) {
                                             AudioFormat.entries.forEach { format ->
                                                 DropdownMenuItem(text = { Text(format.label) }, onClick = { viewModel.setAudioFormat(format); expanded = false })
@@ -756,7 +795,7 @@ fun SettingsContent(section: SettingsSection, viewModel: MainViewModel) {
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .clip(RoundedCornerShape(12.dp))
+                                .clip(MaterialTheme.shapes.medium)
                                 .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = cardOpacity * 0.5f))
                         ) {
                             ListItem(
@@ -772,29 +811,103 @@ fun SettingsContent(section: SettingsSection, viewModel: MainViewModel) {
                                 colors = ListItemDefaults.colors(containerColor = Color.Transparent)
                             )
                         }
-                    }
-                } else {
-                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        var showApplied by remember { mutableStateOf(false) }
-                        LaunchedEffect(state.audioConfigRevision) {
-                            if (state.audioConfigRevision > 0) {
-                                showApplied = true
-                                delay(1200)
-                                showApplied = false
-                            }
-                        }
-                        if (showApplied) {
-                            Text(
-                                strings.audioConfigAppliedLabel,
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                            )
-                        }
+
+                        // Android 音频源选择 (下拉菜单)
+                        val audioSources = listOf(
+                            "Mic" to "默认",
+                            "VoiceCommunication" to "VoIP",
+                            "VoiceRecognition" to "语音识别",
+                            "VoicePerformance" to "低延迟",
+                            "Camcorder" to "摄像机",
+                            "Unprocessed" to "原始音频"
+                        )
+                        val currentSourceLabel = audioSources.find { it.first == state.androidAudioSourceName }?.second ?: "默认"
+
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .clip(RoundedCornerShape(12.dp))
+                                .clip(MaterialTheme.shapes.medium)
+                                .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = cardOpacity * 0.5f))
+                        ) {
+                            var expanded by remember { mutableStateOf(false) }
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                // 左侧标题
+                                Text("音频源", style = MaterialTheme.typography.titleSmall)
+                                // 右侧下拉按钮
+                                Box {
+                                    TextButton(onClick = { expanded = true }) {
+                                        Text(currentSourceLabel, style = MaterialTheme.typography.bodyMedium)
+                                        Icon(Icons.Default.ArrowDropDown, contentDescription = "展开")
+                                    }
+                                    DropdownMenu(
+                                        expanded = expanded,
+                                        onDismissRequest = { expanded = false },
+                                        modifier = Modifier.width(200.dp)
+                                    ) {
+                                        audioSources.forEach { (sourceName, label) ->
+                                            DropdownMenuItem(
+                                                text = { Text(label) },
+                                                onClick = {
+                                                    viewModel.setAndroidAudioSource(sourceName)
+                                                    expanded = false
+                                                },
+                                                trailingIcon = {
+                                                    if (state.androidAudioSourceName == sourceName) {
+                                                        Icon(Icons.Default.Check, contentDescription = "已选择")
+                                                    }
+                                                }
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                } else {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        // 1. 增益 (Amplifier) - 第一行显示
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(MaterialTheme.shapes.medium)
+                                .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = cardOpacity * 0.5f))
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp).fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                            ) {
+                                Text(strings.gainLabel, style = MaterialTheme.typography.titleSmall)
+
+                                Slider(
+                                    value = state.amplification,
+                                    onValueChange = { viewModel.setAmplification(it) },
+                                    valueRange = -50.0f..50.0f,
+                                    modifier = Modifier.weight(1f)
+                                )
+
+                                // 固定宽度避免进度条左右移动，"-50 dB" 是最宽的情况
+                                val gainText = if (state.amplification >= 0) "+${state.amplification.toInt()} dB" else "${state.amplification.toInt()} dB"
+                                Text(
+                                    gainText,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    modifier = Modifier.width(60.dp),
+                                    textAlign = TextAlign.End
+                                )
+                            }
+                        }
+
+                        // 2. 降噪 (Noise Suppression)
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(MaterialTheme.shapes.medium)
                                 .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = cardOpacity * 0.5f))
                         ) {
                             ListItem(
@@ -810,7 +923,7 @@ fun SettingsContent(section: SettingsSection, viewModel: MainViewModel) {
                             Box(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .clip(RoundedCornerShape(12.dp))
+                                    .clip(MaterialTheme.shapes.medium)
                                     .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = cardOpacity * 0.5f))
                             ) {
                                 ListItem(
@@ -830,7 +943,7 @@ fun SettingsContent(section: SettingsSection, viewModel: MainViewModel) {
                                                 DropdownMenu(
                                                     expanded = expanded,
                                                     onDismissRequest = { expanded = false },
-                                                    shape = RoundedCornerShape(16.dp)
+                                                    shape = MaterialTheme.shapes.medium
                                                 ) {
                                                     NoiseReductionType.entries.forEach { type ->
                                                         DropdownMenuItem(text = { Text(type.name) }, onClick = { viewModel.setNsType(type); expanded = false })
@@ -847,73 +960,12 @@ fun SettingsContent(section: SettingsSection, viewModel: MainViewModel) {
                                 NoiseReductionHelpPopup(onDismiss = { showNsTypeHelp = false })
                             }
                         }
-                        
+
+                        // 3. 去混响 (Dereverb)
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .clip(RoundedCornerShape(12.dp))
-                                .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = cardOpacity * 0.5f))
-                        ) {
-                            ListItem(
-                                headlineContent = { Text(strings.enableAgcLabel) },
-                                trailingContent = { Switch(checked = state.enableAGC, onCheckedChange = { viewModel.setEnableAGC(it) }) },
-                                modifier = Modifier.clickable { viewModel.setEnableAGC(!state.enableAGC) },
-                                colors = ListItemDefaults.colors(containerColor = Color.Transparent)
-                            )
-                        }
-                        if (state.enableAGC) {
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .clip(RoundedCornerShape(12.dp))
-                                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = cardOpacity * 0.5f))
-                            ) {
-                                Column(modifier = Modifier.padding(16.dp)) {
-                                    Text("${strings.agcTargetLabel}: ${state.agcTargetLevel}", style = MaterialTheme.typography.bodySmall)
-                                    Slider(
-                                        value = state.agcTargetLevel.toFloat(),
-                                        onValueChange = { viewModel.setAgcTargetLevel(it.toInt()) },
-                                        valueRange = 0f..100f
-                                    )
-                                }
-                            }
-                        }
-                        
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clip(RoundedCornerShape(12.dp))
-                                .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = cardOpacity * 0.5f))
-                        ) {
-                            ListItem(
-                                headlineContent = { Text(strings.enableVadLabel) },
-                                trailingContent = { Switch(checked = state.enableVAD, onCheckedChange = { viewModel.setEnableVAD(it) }) },
-                                modifier = Modifier.clickable { viewModel.setEnableVAD(!state.enableVAD) },
-                                colors = ListItemDefaults.colors(containerColor = Color.Transparent)
-                            )
-                        }
-                        if (state.enableVAD) {
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .clip(RoundedCornerShape(12.dp))
-                                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = cardOpacity * 0.5f))
-                            ) {
-                                Column(modifier = Modifier.padding(16.dp)) {
-                                    Text("${strings.vadThresholdLabel}: ${state.vadThreshold}", style = MaterialTheme.typography.bodySmall)
-                                    Slider(
-                                        value = state.vadThreshold.toFloat(),
-                                        onValueChange = { viewModel.setVadThreshold(it.toInt()) },
-                                        valueRange = 0f..100f
-                                    )
-                                }
-                            }
-                        }
-                        
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clip(RoundedCornerShape(12.dp))
+                                .clip(MaterialTheme.shapes.medium)
                                 .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = cardOpacity * 0.5f))
                         ) {
                             ListItem(
@@ -927,7 +979,7 @@ fun SettingsContent(section: SettingsSection, viewModel: MainViewModel) {
                             Box(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .clip(RoundedCornerShape(12.dp))
+                                    .clip(MaterialTheme.shapes.medium)
                                     .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = cardOpacity * 0.5f))
                             ) {
                                 Column(modifier = Modifier.padding(16.dp)) {
@@ -940,48 +992,68 @@ fun SettingsContent(section: SettingsSection, viewModel: MainViewModel) {
                                 }
                             }
                         }
-                        
+
+                        // 4. 自动增益控制 (AGC)
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .clip(RoundedCornerShape(12.dp))
+                                .clip(MaterialTheme.shapes.medium)
                                 .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = cardOpacity * 0.5f))
                         ) {
-                            Column(modifier = Modifier.padding(16.dp)) {
-                                Text(strings.amplificationLabel, style = MaterialTheme.typography.titleSmall)
-                                Spacer(Modifier.height(8.dp))
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.SpaceBetween,
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Text("${strings.amplificationMultiplierLabel}: ${((state.amplification * 10).toInt()) / 10f}x", style = MaterialTheme.typography.bodySmall)
-                                    
-                                    var textValue by remember(state.amplification) { mutableStateOf(((state.amplification * 10).toInt() / 10f).toString()) }
-                                    
-                                    BasicTextField(
-                                        value = textValue,
-                                        onValueChange = { 
-                                            textValue = it
-                                            it.toFloatOrNull()?.let { val floatVal = it.coerceIn(0f, 60f); viewModel.setAmplification(floatVal) }
-                                        },
-                                        textStyle = MaterialTheme.typography.bodySmall.copy(
-                                            color = MaterialTheme.colorScheme.onSurface,
-                                            textAlign = TextAlign.End
-                                        ),
-                                        modifier = Modifier
-                                            .width(60.dp)
-                                            .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(4.dp))
-                                            .padding(horizontal = 8.dp, vertical = 4.dp),
-                                        singleLine = true,
-                                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal)
+                            ListItem(
+                                headlineContent = { Text(strings.enableAgcLabel) },
+                                trailingContent = { Switch(checked = state.enableAGC, onCheckedChange = { viewModel.setEnableAGC(it) }) },
+                                modifier = Modifier.clickable { viewModel.setEnableAGC(!state.enableAGC) },
+                                colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+                            )
+                        }
+                        if (state.enableAGC) {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(MaterialTheme.shapes.medium)
+                                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = cardOpacity * 0.5f))
+                            ) {
+                                Column(modifier = Modifier.padding(16.dp)) {
+                                    Text("${strings.agcTargetLabel}: ${state.agcTargetLevel}", style = MaterialTheme.typography.bodySmall)
+                                    Slider(
+                                        value = state.agcTargetLevel.toFloat(),
+                                        onValueChange = { viewModel.setAgcTargetLevel(it.toInt()) },
+                                        valueRange = 0f..100f
                                     )
                                 }
-                                Slider(
-                                    value = state.amplification,
-                                    onValueChange = { viewModel.setAmplification(it) },
-                                    valueRange = 0.0f..60.0f
-                                )
+                            }
+                        }
+
+                        // 5. 语音活动检测 (VAD)
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(MaterialTheme.shapes.medium)
+                                .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = cardOpacity * 0.5f))
+                        ) {
+                            ListItem(
+                                headlineContent = { Text(strings.enableVadLabel) },
+                                trailingContent = { Switch(checked = state.enableVAD, onCheckedChange = { viewModel.setEnableVAD(it) }) },
+                                modifier = Modifier.clickable { viewModel.setEnableVAD(!state.enableVAD) },
+                                colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+                            )
+                        }
+                        if (state.enableVAD) {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(MaterialTheme.shapes.medium)
+                                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = cardOpacity * 0.5f))
+                            ) {
+                                Column(modifier = Modifier.padding(16.dp)) {
+                                    Text("${strings.vadThresholdLabel}: ${state.vadThreshold}", style = MaterialTheme.typography.bodySmall)
+                                    Slider(
+                                        value = state.vadThreshold.toFloat(),
+                                        onValueChange = { viewModel.setVadThreshold(it.toInt()) },
+                                        valueRange = 0f..100f
+                                    )
+                                }
                             }
                         }
                     }
@@ -1042,20 +1114,20 @@ fun SettingsContent(section: SettingsSection, viewModel: MainViewModel) {
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .clip(RoundedCornerShape(12.dp))
+                            .clip(MaterialTheme.shapes.medium)
                             .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = cardOpacity * 0.5f))
                     ) {
                         ListItem(
                             headlineContent = { Text(strings.developerLabel) },
                             supportingContent = { Text("LanRhyme、ChinsaaWei") },
-                            leadingContent = { Icon(painterResource(Res.drawable.icon_star_fall_mini), null,modifier = Modifier.size(24.dp)) },
+                            leadingContent = { Icon(Icons.Rounded.Person, null,modifier = Modifier.size(24.dp)) },
                             colors = ListItemDefaults.colors(containerColor = Color.Transparent)
                         )
                     }
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .clip(RoundedCornerShape(12.dp))
+                            .clip(MaterialTheme.shapes.medium)
                             .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = cardOpacity * 0.5f))
                     ) {
                         ListItem(
@@ -1068,20 +1140,20 @@ fun SettingsContent(section: SettingsSection, viewModel: MainViewModel) {
                                     modifier = Modifier.clickable { uriHandler.openUri("https://github.com/LanRhyme/MicYou") }
                                 ) 
                             },
-                            leadingContent = { Icon(painterResource(Res.drawable.icon_planet), null,modifier = Modifier.size(24.dp)) },
+                            leadingContent = { Icon(Icons.Rounded.Language, null,modifier = Modifier.size(24.dp)) },
                             colors = ListItemDefaults.colors(containerColor = Color.Transparent)
                         )
                     }
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .clip(RoundedCornerShape(12.dp))
+                            .clip(MaterialTheme.shapes.medium)
                             .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = cardOpacity * 0.5f))
                     ) {
                         ListItem(
                             headlineContent = { Text(strings.contributorsLabel) },
                             supportingContent = { Text(strings.contributorsDesc) },
-                            leadingContent = { Icon(painterResource(Res.drawable.icon_star_fall), null,modifier = Modifier.size(24.dp)) },
+                            leadingContent = { Icon(Icons.Rounded.People, null,modifier = Modifier.size(24.dp)) },
                             modifier = Modifier.clickable { showContributorsDialog = true },
                             colors = ListItemDefaults.colors(containerColor = Color.Transparent)
                         )
@@ -1089,13 +1161,13 @@ fun SettingsContent(section: SettingsSection, viewModel: MainViewModel) {
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .clip(RoundedCornerShape(12.dp))
+                            .clip(MaterialTheme.shapes.medium)
                             .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = cardOpacity * 0.5f))
                     ) {
                         ListItem(
                             headlineContent = { Text(strings.versionLabel) },
                             supportingContent = { Text(getAppVersion()) },
-                            leadingContent = { Icon(painterResource(Res.drawable.icon_compass), null,modifier = Modifier.size(24.dp)) },
+                            leadingContent = { Icon(Icons.Rounded.Info, null,modifier = Modifier.size(24.dp)) },
                             trailingContent = {
                                 TextButton(onClick = { viewModel.checkUpdateManual() }) {
                                     Text(strings.checkUpdate)
@@ -1107,13 +1179,13 @@ fun SettingsContent(section: SettingsSection, viewModel: MainViewModel) {
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .clip(RoundedCornerShape(12.dp))
+                            .clip(MaterialTheme.shapes.medium)
                             .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = cardOpacity * 0.5f))
                     ) {
                         ListItem(
                             headlineContent = { Text(strings.openSourceLicense) },
                             supportingContent = { Text(strings.viewLibraries) },
-                            leadingContent = { Icon(painterResource(Res.drawable.icon_creative), null,modifier = Modifier.size(24.dp)) },
+                            leadingContent = { Icon(Icons.Rounded.Description, null,modifier = Modifier.size(24.dp)) },
                             modifier = Modifier.clickable { showLicenseDialog = true },
                             colors = ListItemDefaults.colors(containerColor = Color.Transparent)
                         )
@@ -1121,13 +1193,13 @@ fun SettingsContent(section: SettingsSection, viewModel: MainViewModel) {
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .clip(RoundedCornerShape(12.dp))
+                            .clip(MaterialTheme.shapes.medium)
                             .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = cardOpacity * 0.5f))
                     ) {
                         ListItem(
                             headlineContent = { Text(strings.exportLog) },
                             supportingContent = { Text(strings.exportLogDesc) },
-                            leadingContent = { Icon(painterResource(Res.drawable.icon_file), null,modifier = Modifier.size(24.dp)) },
+                            leadingContent = { Icon(Icons.AutoMirrored.Rounded.TextSnippet, null,modifier = Modifier.size(24.dp)) },
                             modifier = Modifier.clickable {
                                 viewModel.exportLog { path ->
                                     if (path != null) {
@@ -1146,7 +1218,7 @@ fun SettingsContent(section: SettingsSection, viewModel: MainViewModel) {
                     colors = CardDefaults.cardColors(
                         containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = cardOpacity * 0.7f)
                     ),
-                    shape = RoundedCornerShape(12.dp)
+                    shape = MaterialTheme.shapes.medium
                 ) {
                      Column(modifier = Modifier.padding(16.dp)) {
                         Text(strings.softwareIntro, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSecondaryContainer)
@@ -1184,7 +1256,7 @@ fun NoiseReductionHelpPopup(onDismiss: () -> Unit) {
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(16.dp),
-            shape = RoundedCornerShape(16.dp),
+            shape = MaterialTheme.shapes.medium,
             colors = CardDefaults.cardColors(
                 containerColor = MaterialTheme.colorScheme.surface
             )
@@ -1279,7 +1351,7 @@ private fun AlgorithmInfoItem(
                 Spacer(modifier = Modifier.width(8.dp))
                 Surface(
                     color = if (isRecommended) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.secondaryContainer,
-                    shape = RoundedCornerShape(4.dp)
+                    shape = MaterialTheme.shapes.extraSmall
                 ) {
                     Text(
                         recommendation,

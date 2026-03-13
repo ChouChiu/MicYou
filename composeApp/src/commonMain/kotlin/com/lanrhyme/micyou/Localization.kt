@@ -55,7 +55,7 @@ data class AppStrings(
     val autoStartLabel: String = "Auto Start",
     val pocketModeLabel: String = "Compact Mode",
     val pocketModeDesc: String = "Use a compact window layout",
-    val monitoringLabel: String = "Monitoring (Desktop)",
+    val monitoringLabel: String = "Monitoring",
     val sampleRateLabel: String = "Sample Rate",
     val channelCountLabel: String = "Channels",
     val audioFormatLabel: String = "Audio Format",
@@ -80,23 +80,31 @@ data class AppStrings(
     val enableDereverbLabel: String = "De-reverb",
     val dereverbLevelLabel: String = "Level",
     val amplificationLabel: String = "Amplification",
+    val gainLabel: String = "Gain",
     val openSourceLicense: String = "License",
     val viewLibraries: String = "View Open Source Libraries",
     val softwareIntro: String = "Introduction",
     val introText: String = "MicYou is an open source microphone tool that turns your Android device into a high-quality microphone for your computer. Based on AndroidMic, it supports Wi-Fi (TCP), Bluetooth, and USB connections, providing low-latency audio transmission.",
     val systemConfigTitle: String = "System Configuration",
     val enableStreamingNotificationLabel: String = "Streaming Notification (Android)",
+    val keepScreenOnLabel: String = "Keep Screen On",
+    val keepScreenOnDesc: String = "Prevent the screen from turning off while using the app",
     val clickToStart: String = "Click to Start",
     val autoStartDesc: String = "Start streaming automatically on app launch",
     val noGeneralSettings: String = "No general settings available",
     val themeColorLabel: String = "Theme Color",
+    val oledPureBlackLabel: String = "OLED Optimization",
+    val oledPureBlackDesc: String = "Use a pure black background in dark mode",
     val amplificationMultiplierLabel: String = "Multiplier",
     val licensesTitle: String = "Open Source Libraries and Licenses",
     val basedOnAndroidMic: String = "MicYou is based on AndroidMic.",
     val developerLabel: String = "Developer",
     val githubRepoLabel: String = "GitHub Repository",
     val versionLabel: String = "Version",
-    val useDynamicColorLabel: String = "Use System Dynamic Color",
+    val useDynamicColorLabel: String = "Enable Dynamic Color",
+    val useDynamicColorDesc: String = "Use system accent color for app theme",
+    val dynamicColorActiveHint: String = "Currently using system dynamic color",
+    val dynamicColorEnabledHint: String = "Dynamic color is enabled",
     val androidAudioProcessingLabel: String = "Built-in Audio Processing",
     val androidAudioProcessingDesc: String = "Use hardware audio processing. May affect output quality.",
     val contributorsLabel: String = "Contributors",
@@ -139,6 +147,18 @@ data class AppStrings(
     val checkingUpdate: String = "Checking for updates...",
     val updateCheckFailed: String = "Failed to check for updates: %s",
     val newVersionReleased: String = "New version released",
+    val updateDownloading: String = "Downloading update...",
+    val updateDownloadFailed: String = "Download failed: %s",
+    val updateInstalling: String = "Installing update...",
+    val updateGoToGitHub: String = "Go to GitHub",
+    val autoCheckUpdateLabel: String = "Auto Check for Updates",
+    val autoCheckUpdateDesc: String = "Automatically check for new versions on app launch",
+
+    // First launch dialog
+    val firstLaunchTitle: String = "Welcome to MicYou",
+    val firstLaunchMessage: String = "You seem to be using MicYou for the first time. This app turns your Android device into a high-quality microphone for your computer via Wi-Fi, Bluetooth, or USB.",
+    val firstLaunchGuideButton: String = "View Usage Guide",
+    val firstLaunchGotItButton: String = "I know how to use it",
 
     // BlackHole (macOS virtual audio)
     val blackHoleInstalled: String = "BlackHole is installed, please configure in System Settings",
@@ -191,7 +211,11 @@ data class AppStrings(
     
     // Floating Window
     val floatingWindowLabel: String = "Floating Window",
-    val floatingWindowDesc: String = "Show a small always-on-top window with audio visualization"
+    val floatingWindowDesc: String = "Show a small always-on-top window with audio visualization",
+    
+    // System Title Bar
+    val useSystemTitleBarLabel: String = "System Title Bar",
+    val useSystemTitleBarDesc: String = "Use native system window decorations instead of custom title bar"
 )
 
 val LocalAppStrings = staticCompositionLocalOf { AppStrings() }

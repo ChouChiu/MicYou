@@ -1,14 +1,24 @@
 package com.lanrhyme.micyou
 
 import android.Manifest
+import android.content.Intent
 import android.os.Bundle
 import android.content.pm.PackageManager
+import android.view.WindowManager
+import android.widget.Toast
 import androidx.activity.ComponentActivity
+import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.collectAsState
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.core.app.ActivityCompat
+import androidx.lifecycle.viewmodel.compose.viewModel
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -21,6 +31,8 @@ class MainActivity : ComponentActivity() {
         Logger.i("MainActivity", "App started")
         
         BackgroundImagePicker.registerLauncher(this)
+
+        val shouldQuickStart = intent?.action == ACTION_QUICK_START
 
         val permissionsToRequest = mutableListOf<String>()
         if (ActivityCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
@@ -44,8 +56,80 @@ class MainActivity : ComponentActivity() {
         }
 
         setContent {
-            App()
+            val appViewModel: MainViewModel = viewModel()
+            val keepScreenOn by appViewModel.uiState.collectAsState().let { state ->
+                derivedStateOf { state.value.keepScreenOn }
+            }
+            val streamState by appViewModel.uiState.collectAsState().let { state ->
+                derivedStateOf { state.value.streamState }
+            }
+
+            LaunchedEffect(shouldQuickStart) {
+                if (shouldQuickStart && appViewModel.uiState.value.streamState == StreamState.Idle) {
+                    appViewModel.startStream()
+                    moveTaskToBack(true)
+                }
+            }
+
+            LaunchedEffect(shouldQuickStart, streamState) {
+                if (shouldQuickStart) {
+                    when (streamState) {
+                        StreamState.Streaming -> {
+                            Toast.makeText(this@MainActivity, R.string.qs_toast_connected, Toast.LENGTH_SHORT).show()
+                        }
+                        StreamState.Error -> {
+                            Toast.makeText(this@MainActivity, R.string.qs_toast_failed, Toast.LENGTH_SHORT).show()
+                        }
+                        else -> {}
+                    }
+                }
+            }
+
+            val themeMode by appViewModel.uiState.collectAsState().let { state ->
+                derivedStateOf { state.value.themeMode }
+            }
+            val isDark = isDarkThemeActive(themeMode)
+
+            DisposableEffect(isDark) {
+                this@MainActivity.enableEdgeToEdge(
+                    statusBarStyle = if (isDark) {
+                        SystemBarStyle.dark(android.graphics.Color.TRANSPARENT)
+                    } else {
+                        SystemBarStyle.light(
+                            android.graphics.Color.TRANSPARENT,
+                            android.graphics.Color.TRANSPARENT
+                        )
+                    },
+                    navigationBarStyle = if (isDark) {
+                        SystemBarStyle.dark(android.graphics.Color.TRANSPARENT)
+                    } else {
+                        SystemBarStyle.light(
+                            android.graphics.Color.TRANSPARENT,
+                            android.graphics.Color.TRANSPARENT
+                        )
+                    }
+                )
+                onDispose {}
+            }
+
+            DisposableEffect(keepScreenOn) {
+                if (keepScreenOn) {
+                    window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+                } else {
+                    window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+                }
+
+                onDispose {
+                    window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+                }
+            }
+
+            App(viewModel = appViewModel)
         }
+    }
+
+    companion object {
+        const val ACTION_QUICK_START = "com.lanrhyme.micyou.ACTION_QUICK_START"
     }
 }
 

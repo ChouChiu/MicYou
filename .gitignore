@@ -2,6 +2,7 @@
 .kotlin
 .gradle
 **/build/
+composeApp/bin/
 xcuserdata
 !src/**/build/
 local.properties
@@ -19,3 +20,6 @@ captures
 node_modules/
 gradle.properties
 gradle/wrapper/gradle-wrapper.properties
+CLAUDE.md
+.claude/
+QWEN.md

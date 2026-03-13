@@ -10,7 +10,7 @@
 
 <p align="center">
   <a href="https://github.com/LanRhyme/MicYou/blob/master/LICENSE">
-    <img alt="LICENSE" src="https://img.shields.io/badge/license-MIT-green"></a>
+    <img alt="LICENSE" src="https://img.shields.io/badge/license-GPLv3-green"></a>
   <a href="https://github.com/LanRhyme/MicYou/stargazers">
     <img alt="Github Stars" src="https://img.shields.io/github/stars/LanRhyme/MicYou?style=flat&logo=github&logoColor=white"><a>
   <a href="https://github.com/LanRhyme/MicYou/releases/latest">
@@ -23,7 +23,7 @@
     <img alt="Crowdin" src="https://badges.crowdin.net/micyou/localized.svg"></a>
 </p>
 
-<h6 align="center">基于</h6>
+<h6 align="center">技术栈</h6>
 <p align="center">
   <img alt="Kotlin" src="https://img.shields.io/badge/kotlin-%237F52FF.svg?style=for-the-badge&logo=kotlin&logoColor=white" />
   <img alt="Jetpack Compose" src="https://img.shields.io/badge/Jetpack_Compose-4285F4?style=for-the-badge&logo=jetpackcompose&logoColor=white">
@@ -38,17 +38,24 @@
   <img alt="macOS" src="https://img.shields.io/badge/mac%20os-000000?style=for-the-badge&logo=apple&logoColor=F0F0F0" />
 </p>
 
-MicYou 是一款强大的工具，可以将您的 Android 设备变成 PC 的高质量无线麦克风，于 Kotlin Multiplatform 和 Jetpack Compose/Material 3 构建
+<h6 align="center">赞助我</h6>
 
-本项目基于 [AndroidMic](https://github.com/teamclouday/AndroidMic) 开发
+<p align="center">
+<a href="https://afdian.com/a/LanRhyme" target="_blank" rel="noopener noreferrer">
+  <img src="https://img.shields.io/badge/%E7%88%B1%E5%8F%91%E7%94%B5-@LanRhyme-946ce6?style=for-the-badge&logo=afdian&logoColor=white" alt="爱发电"></a>
+</p>
+
+MicYou 是一款强大的工具，能够将您的 Android 设备转变为 PC 的高质量麦克风。它采用 Kotlin Multiplatform 和 Jetpack Compose/Material 3 构建。
+
+本项目基于 [AndroidMic](https://github.com/teamclouday/AndroidMic) 开发而成。
 
 ## 主要功能
 
 - **多种连接模式**：支持 Wi-Fi、USB (ADB/AOA) 和蓝牙连接
 - **音频处理**：内置噪声抑制、自动增益控制 (AGC) 和去混响功能
 - **跨平台支持**：
-  - **Android 客户端**：现代 Material 3 界面，支持深色/浅色主题
-  - **桌面端服务端**：支持 Windows/Linux/macOS 接收音频
+  - **Android 客户端**：采用现代 Material 3 设计，支持深色与浅色主题
+  - **桌面端服务端**：可在 Windows、Linux 和 macOS 上接收音频
 - **虚拟麦克风**：配合 VB-Cable 可作为系统麦克风输入使用
 - **高度可定制**：支持调整采样率、声道数和音频格式
 
@@ -63,139 +70,14 @@ MicYou 是一款强大的工具，可以将您的 Android 设备变成 PC 的高
 <img src="img/desktop_screenshot_zh-cn.png" width="600" />
 
 ## 使用指南
+快速开始指南及各平台安装说明已移至常见问题文档：
 
-### 1. 下载 ADB 
-- 从 [Android Developers](https://developer.android.com/tools/releases/platform-tools?hl=zh_cn) 下载
-- 使用包管理器下载
-  - `winget install -e --id Google.PlatformTools`
-  - `sudo apt install android-tools-adb`
-  - `sudo pacman -S android-tools`
-  - ...
-  
-大部分情况下会自动将 ADB 加入环境变量。如果没有，请自行配置
+- [快速开始](./docs/FAQ_ZH.md#快速开始)
+- [常见问题](./docs/FAQ_ZH.md#常见问题)
 
-### 2. 启用 USB 调试
-以 OneUI 8 为例
+## 贡献指南
 
-1. 进入设置，点击`关于手机`
-2. 点击`软件信息`，找到`编译编号`，点击 **7** 下，当见到 `不需要，开发者模式已启用`，即开启成功
-3. 返回设置，点击`开发者选项`，找到`USB 调试`，开启即可
-
-### 3. 使用 USB 连接
-确保您在使用一根**稳定**的数据线，并**同时**在桌面端和 Android 客户端将连接模式切换为 `USB`
-
-### 4. 使用 Wi-Fi 连接
-确保您的 Android 设备与 PC 处于**同一网络环境**下，并**同时**在桌面端和 Android 客户端将连接模式切换为 `Wi-Fi`。
-#### 使用
-
-### Android
-1. 下载并安装 APK 到您的 Android 设备
-2. 确保您的设备与 PC 处于同一网络（Wi-Fi 模式），或通过 USB 连接
-
-### Windows
-1. 运行桌面端应用程序
-2. 配置连接模式以匹配 Android 应用
-
-### macOS
-
-> [!IMPORTANT]
-> 如果您使用的是 Apple Silicon Mac，在不使用 Rosetta 2 转译的前提下无法使用蓝牙模式
-
-为了保证您的使用体验，需要通过 Homebrew 安装一些依赖
-
-~~~bash
-brew install blackhole-2ch --cask
-brew install switchaudio-osx --formulae
-~~~
-
-**BlackHole 必须安装**，若没有 Homebrew 则前往 https://existential.audio/blackhole/download/ 下载安装包。无论您是通过 Homebrew 还是手动安装，安装后请务必重启
-
-在 [GitHub Releases](https://github.com/LanRhyme/MicYou/releases) 下载应用并安装到应用程序目录后，第一次使用可能会被 Gatekeeper 拦截
-
-若提示不受信任的开发者，您可以前往 **"系统设置"/"系统偏好设置" -> "隐私与安全"** 中允许应用运行
-
-若提示“应用已损坏”，执行以下指令解决：
-~~~bash
-sudo xattr -r -d com.apple.quarantine /Applications/MicYou.app
-~~~
-
-### Linux
-
-#### 使用预编译包（推荐）
-预编译包可在 [GitHub Releases](https://github.com/LanRhyme/MicYou/releases) 下载
-
-**DEB 包（适用于 Debian/Ubuntu/Mint 等发行版）：**
-```bash
-# 从 GitHub Releases 下载 .deb 包
-sudo dpkg -i MicYou-*.deb
-# 如果缺少依赖：
-sudo apt install -f
-```
-
-**RPM 包（适用于 Fedora/RHEL/openSUSE 等发行版）：**
-```bash
-# 从 GitHub Releases 下载 .rpm 包
-sudo rpm -i MicYou-*.rpm
-# 或者使用 dnf/yum：
-sudo dnf install MicYou-*.rpm
-```
-
-**AUR 仓库（适用于 Arch Linux 及其衍生发行版）：**
-```bash
-# 克隆 AUR 仓库并自动安装软件包及其依赖
-git clone https://aur.archlinux.org/micyou-bin.git
-cd micyou-bin
-makepkg -si
-
-# 或者使用 paru 等 AUR helpers
-paru -S micyou-bin
-```
-
-**运行应用：**
-```bash
-# 安装后可以从应用菜单运行 MicYou
-# 或者从终端运行：
-MicYou
-```
-
-> [!TIP]
-> 遇到问题？请查看：[常见问题](./docs/FAQ_ZH.md)
-
-## 源码构建
-
-本项目使用 Kotlin Multiplatform 构建
-
-**Android 应用（APK）：**
-```bash
-./gradlew :composeApp:assembleDebug
-```
-
-**桌面应用（直接运行）：**
-```bash
-./gradlew :composeApp:run
-```
-
-**构建发布包：**
-
-**Windows 安装包（NSIS）：**
-```bash
-./gradlew :composeApp:packageWindowsNsis
-```
-
-**Windows ZIP 归档：**
-```bash
-./gradlew :composeApp:packageWindowsZip
-```
-
-**Linux DEB 包：**
-```bash
-./gradlew :composeApp:packageDeb
-```
-
-**Linux RPM 包：**
-```bash
-./gradlew :composeApp:packageRpm
-```
+我们欢迎各种形式的贡献！无论是报告 Bug、提出功能建议、协助翻译还是贡献代码，都请参阅我们的 [贡献指南](./CONTRIBUTING_zh-cn.md) 以开始参与。
 
 ## Contributors
 <a href="https://github.com/LanRhyme/MicYou/graphs/contributors">

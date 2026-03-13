@@ -18,7 +18,11 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.Canvas
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.hoverable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
@@ -32,7 +36,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -51,7 +54,6 @@ import androidx.compose.material3.FloatingActionButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -66,6 +68,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.geometry.Offset
@@ -78,6 +81,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import com.lanrhyme.micyou.BackHandlerCompat
 import com.lanrhyme.micyou.animation.EasingFunctions
 import com.lanrhyme.micyou.animation.rememberBreathAnimation
 import com.lanrhyme.micyou.animation.rememberGlowAnimation
@@ -86,13 +90,11 @@ import com.lanrhyme.micyou.animation.rememberRotationAnimation
 import com.lanrhyme.micyou.animation.rememberWaveAnimation
 import dev.chrisbanes.haze.HazeState
 import kotlinx.coroutines.delay
-import micyou.composeapp.generated.resources.Res
-import micyou.composeapp.generated.resources.icon_bluetooth
-import micyou.composeapp.generated.resources.icon_home_wifi
-import micyou.composeapp.generated.resources.icon_pip
-import micyou.composeapp.generated.resources.icon_settings
-import micyou.composeapp.generated.resources.icon_usb
-import org.jetbrains.compose.resources.painterResource
+import androidx.compose.material.icons.rounded.Bluetooth
+import androidx.compose.material.icons.rounded.Podcasts
+import androidx.compose.material.icons.rounded.Settings
+import androidx.compose.material.icons.rounded.Usb
+import androidx.compose.material.icons.rounded.Wifi
 import kotlin.math.abs
 import kotlin.math.cos
 import kotlin.math.min
@@ -107,9 +109,16 @@ fun MobileHome(viewModel: MainViewModel) {
     val isClient = platform.type == PlatformType.Android
     val strings = LocalAppStrings.current
     val snackbarHostState = remember { SnackbarHostState() }
+    val isDarkTheme = isDarkThemeActive(state.themeMode)
+    val forcePureBlackBackground = state.oledPureBlack && isDarkTheme
     
     var showSettings by remember { mutableStateOf(false) }
     var contentVisible by remember { mutableStateOf(false) }
+
+    // Handle Android system back gesture to close settings page (no-op on desktop)
+    BackHandlerCompat(enabled = showSettings) {
+        showSettings = false
+    }
     
     val hazeState = if (state.backgroundSettings.enableHazeEffect && state.backgroundSettings.hasCustomBackground) {
         rememberHazeState()
@@ -127,26 +136,18 @@ fun MobileHome(viewModel: MainViewModel) {
         }
     }
 
-    if (showSettings) {
-        ModalBottomSheet(
-            onDismissRequest = { showSettings = false },
-            shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp)
-        ) {
-            Box(modifier = Modifier.fillMaxWidth().wrapContentHeight()) {
-                DesktopSettings(viewModel = viewModel, onClose = { showSettings = false })
-            }
-        }
-    }
+    // settings overlay handled below via AnimatedVisibility so exit animation can run
 
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
-        containerColor = Color.Transparent,
+        containerColor = MaterialTheme.colorScheme.background,
     ) { padding ->
         Box(modifier = Modifier.fillMaxSize()) {
             CustomBackground(
                 settings = state.backgroundSettings,
                 modifier = Modifier.fillMaxSize(),
-                hazeState = hazeState
+                hazeState = hazeState,
+                forcePureBlackBackground = forcePureBlackBackground
             )
             
             Column(
@@ -216,6 +217,22 @@ fun MobileHome(viewModel: MainViewModel) {
                     )
                 }
             }
+            // Settings page overlay
+            AnimatedVisibility(
+                visible = showSettings,
+                enter = slideInHorizontally(
+                    initialOffsetX = { it },
+                    animationSpec = tween(360, easing = EasingFunctions.EaseOutExpo)
+                ) + fadeIn(animationSpec = tween(240)),
+                exit = slideOutHorizontally(
+                    targetOffsetX = { it },
+                    animationSpec = tween(300, easing = EasingFunctions.EaseInOutExpo)
+                ) + fadeOut(animationSpec = tween(200))
+            ) {
+                Surface(modifier = Modifier.fillMaxSize()) {
+                    DesktopSettings(viewModel = viewModel, onClose = { showSettings = false })
+                }
+            }
         }
     }
 }
@@ -268,7 +285,7 @@ private fun MobileHeaderSection(
     hazeState: HazeState? = null
 ) {
     HazeSurface(
-        shape = RoundedCornerShape(16.dp),
+        shape = MaterialTheme.shapes.medium,
         color = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = cardOpacity),
         hazeColor = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = cardOpacity * 0.7f),
         modifier = Modifier.fillMaxWidth(),
@@ -276,23 +293,23 @@ private fun MobileHeaderSection(
         enabled = state.backgroundSettings.enableHazeEffect
     ) {
         Row(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 12.dp),
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(10.dp)
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 // App icon badge
                 Surface(
-                    shape = RoundedCornerShape(10.dp),
+                    shape = MaterialTheme.shapes.small,
                     color = MaterialTheme.colorScheme.primaryContainer,
                     modifier = Modifier.size(36.dp)
                 ) {
                     Box(contentAlignment = Alignment.Center) {
                         Icon(
-                            painter = painterResource(Res.drawable.icon_pip),
+                            Icons.Rounded.Podcasts,
                             contentDescription = null,
                             tint = MaterialTheme.colorScheme.primary,
                             modifier = Modifier.size(20.dp)
@@ -342,7 +359,7 @@ private fun MobileHeaderSection(
                 modifier = Modifier.size(32.dp).scale(settingsScale)
             ) {
                 Icon(
-                    painterResource(Res.drawable.icon_settings),
+                    Icons.Rounded.Settings,
                     contentDescription = strings.settingsTitle,
                     modifier = Modifier.size(18.dp),
                     tint = MaterialTheme.colorScheme.onSurfaceVariant
@@ -365,7 +382,7 @@ private fun ConnectionConfigCard(
     hazeState: HazeState? = null
 ) {
     HazeSurface(
-        shape = RoundedCornerShape(16.dp),
+        shape = MaterialTheme.shapes.medium,
         color = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = cardOpacity),
         hazeColor = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = cardOpacity * 0.7f),
         modifier = Modifier.fillMaxWidth(),
@@ -373,7 +390,7 @@ private fun ConnectionConfigCard(
         enabled = state.backgroundSettings.enableHazeEffect
     ) {
         Column(
-            modifier = Modifier.padding(14.dp).fillMaxWidth(),
+            modifier = Modifier.padding(12.dp).fillMaxWidth(),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             // Mode label
@@ -382,19 +399,19 @@ private fun ConnectionConfigCard(
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
-            
+
             // Mode selector - icon style like Desktop
-            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                 val modes = listOf(
-                    ConnectionMode.Wifi to (strings.modeWifi to painterResource(Res.drawable.icon_home_wifi)),
-                    ConnectionMode.Bluetooth to (strings.modeBluetooth to painterResource(Res.drawable.icon_bluetooth)),
-                    ConnectionMode.Usb to (strings.modeUsb to painterResource(Res.drawable.icon_usb))
+                    ConnectionMode.Wifi to (strings.modeWifi to Icons.Rounded.Wifi),
+                    ConnectionMode.Bluetooth to (strings.modeBluetooth to Icons.Rounded.Bluetooth),
+                    ConnectionMode.Usb to (strings.modeUsb to Icons.Rounded.Usb)
                 )
-                
+
                 modes.forEach { (mode, info) ->
                     val (label, icon) = info
                     val isSelected = state.mode == mode
-                    
+
                     val bgColor by animateColorAsState(
                         targetValue = if (isSelected) MaterialTheme.colorScheme.primary
                         else MaterialTheme.colorScheme.surfaceContainerHighest,
@@ -405,13 +422,14 @@ private fun ConnectionConfigCard(
                         else MaterialTheme.colorScheme.onSurfaceVariant,
                         animationSpec = tween(200)
                     )
-                    
-                    Surface(
-                        shape = RoundedCornerShape(12.dp),
-                        color = bgColor,
+
+                    Box(
                         modifier = Modifier
                             .weight(1f)
                             .height(48.dp)
+                            .clip(MaterialTheme.shapes.medium)
+                            .background(bgColor)
+                            .hoverable(interactionSource = remember { MutableInteractionSource() })
                             .clickable { viewModel.setMode(mode) }
                     ) {
                         Column(
@@ -419,7 +437,7 @@ private fun ConnectionConfigCard(
                             horizontalAlignment = Alignment.CenterHorizontally,
                             verticalArrangement = Arrangement.Center
                         ) {
-                            Icon(icon, null, tint = contentColor, modifier = Modifier.size(18.dp))
+                            Icon(icon, null, tint = contentColor, modifier = Modifier.size(20.dp))
                             Spacer(Modifier.height(2.dp))
                             Text(
                                 label,
@@ -488,7 +506,7 @@ private fun MainControlCard(
     val isConnecting = state.streamState == StreamState.Connecting
 
     HazeSurface(
-        shape = RoundedCornerShape(24.dp),
+        shape = MaterialTheme.shapes.large,
         color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.2f * cardOpacity),
         hazeColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.2f * cardOpacity * 0.7f),
         modifier = Modifier.fillMaxWidth(),
@@ -500,7 +518,7 @@ private fun MainControlCard(
             Column(
                 modifier = Modifier
                     .align(Alignment.TopCenter)
-                    .padding(top = 20.dp),
+                    .padding(top = 24.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
@@ -514,9 +532,9 @@ private fun MainControlCard(
                     },
                     animationSpec = tween(300)
                 )
-                
+
                 Surface(
-                    shape = RoundedCornerShape(12.dp),
+                    shape = MaterialTheme.shapes.medium,
                     color = statusColor.copy(alpha = 0.12f),
                     modifier = Modifier.size(40.dp)
                 ) {
@@ -555,7 +573,7 @@ private fun MainControlCard(
                     )
                     if (isRunning) {
                         Surface(
-                            shape = RoundedCornerShape(3.dp),
+                            shape = MaterialTheme.shapes.extraSmall,
                             color = statusColor
                         ) {
                             Text(
@@ -563,7 +581,7 @@ private fun MainControlCard(
                                 style = MaterialTheme.typography.labelSmall,
                                 color = Color.White,
                                 fontWeight = FontWeight.Bold,
-                                modifier = Modifier.padding(horizontal = 5.dp, vertical = 1.dp)
+                                modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp)
                             )
                         }
                     }
@@ -577,7 +595,7 @@ private fun MainControlCard(
                 ) {
                     if (state.errorMessage != null) {
                         Surface(
-                            shape = RoundedCornerShape(8.dp),
+                            shape = MaterialTheme.shapes.small,
                             color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.5f),
                             modifier = Modifier.padding(horizontal = 24.dp)
                         ) {
@@ -634,7 +652,7 @@ private fun MobileBottomBar(
     hazeState: HazeState? = null
 ) {
     HazeSurface(
-        shape = RoundedCornerShape(16.dp),
+        shape = MaterialTheme.shapes.medium,
         color = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = cardOpacity),
         hazeColor = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = cardOpacity * 0.7f),
         modifier = Modifier.fillMaxWidth(),
@@ -642,7 +660,7 @@ private fun MobileBottomBar(
         enabled = state.backgroundSettings.enableHazeEffect
     ) {
         Row(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 10.dp),
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
@@ -700,7 +718,7 @@ private fun MobileMuteButton(
     )
     
     Surface(
-        shape = RoundedCornerShape(10.dp),
+        shape = MaterialTheme.shapes.small,
         color = bgColor,
         modifier = Modifier.scale(scale).clickable(interactionSource, null) { onToggle() }
     ) {

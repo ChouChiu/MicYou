@@ -34,6 +34,10 @@ enum class VisualizerStyle(val label: String) {
     Particles("Particles")
 }
 
+enum class UpdateDownloadState {
+    Idle, Downloading, Downloaded, Installing, Failed
+}
+
 data class AppUiState(
     val mode: ConnectionMode = ConnectionMode.Wifi,
     val streamState: StreamState = StreamState.Idle,
@@ -61,11 +65,16 @@ data class AppUiState(
     val enableDereverb: Boolean = false,
     val dereverbLevel: Float = 0.5f,
     
-    val amplification: Float = 10.0f,
+    val amplification: Float = 0.0f,
+
+    // Android only: Audio source selection (stored as string to avoid enum dependency)
+    val androidAudioSourceName: String = "Mic",
 
     val audioConfigRevision: Int = 0,
 
     val enableStreamingNotification: Boolean = true,
+    val keepScreenOn: Boolean = false,
+    val oledPureBlack: Boolean = false,
     
     val autoStart: Boolean = false,
     
@@ -82,6 +91,12 @@ data class AppUiState(
     val showCloseConfirmDialog: Boolean = false,
     val rememberCloseAction: Boolean = false,
     val newVersionAvailable: GitHubRelease? = null,
+    val updateDownloadState: UpdateDownloadState = UpdateDownloadState.Idle,
+    val updateDownloadProgress: Float = 0f,
+    val updateDownloadedBytes: Long = 0,
+    val updateTotalBytes: Long = 0,
+    val updateErrorMessage: String? = null,
+    val autoCheckUpdate: Boolean = true,
     val pocketMode: Boolean = true,
     val visualizerStyle: VisualizerStyle = VisualizerStyle.VolumeRing,
     
@@ -89,7 +104,12 @@ data class AppUiState(
     val backgroundSettings: BackgroundSettings = BackgroundSettings(),
     
     // Floating Window Settings (Desktop only)
-    val floatingWindowEnabled: Boolean = false
+    val floatingWindowEnabled: Boolean = false,
+    
+    // System Title Bar (Desktop only)
+    val useSystemTitleBar: Boolean = false,
+    // First Launch Dialog
+    val showFirstLaunchDialog: Boolean = false
 )
 
 enum class CloseAction(val label: String) {
@@ -120,9 +140,8 @@ class MainViewModel : ViewModel() {
         val savedThemeModeName = settings.getString("theme_mode", ThemeMode.System.name)
         val savedThemeMode = try { ThemeMode.valueOf(savedThemeModeName) } catch(e: Exception) { ThemeMode.System }
         
-        val savedSeedColor = settings.getLong("seed_color", 0xFF4285F4)
-        
-        val savedMonitoring = settings.getBoolean("monitoring_enabled", false)
+        val savedMonitoring = false
+        settings.putBoolean("monitoring_enabled", false)
 
         val savedSampleRateName = settings.getString("sample_rate", SampleRate.Rate48000.name)
         val savedSampleRate = try { SampleRate.valueOf(savedSampleRateName) } catch(e: Exception) { SampleRate.Rate48000 }
@@ -145,10 +164,14 @@ class MainViewModel : ViewModel() {
         
         val savedDereverb = settings.getBoolean("enable_dereverb", false)
         val savedDereverbLevel = settings.getFloat("dereverb_level", 0.5f)
-        
-        val savedAmplification = settings.getFloat("amplification", 10.0f)
+
+        val savedAmplification = settings.getFloat("amplification", 0.0f)
+
+        val savedAndroidAudioSourceName = settings.getString("android_audio_source", "Mic")
 
         val savedEnableStreamingNotification = settings.getBoolean("enable_streaming_notification", true)
+        val savedKeepScreenOn = settings.getBoolean("keep_screen_on", false)
+        val savedOledPureBlack = settings.getBoolean("oled_pure_black", false)
         
         val savedAutoStart = settings.getBoolean("auto_start", false)
 
@@ -156,6 +179,8 @@ class MainViewModel : ViewModel() {
         val savedLanguage = try { AppLanguage.valueOf(savedLanguageName) } catch(e: Exception) { AppLanguage.System }
 
         val savedUseDynamicColor = settings.getBoolean("use_dynamic_color", false)
+        val savedSeedColor = settings.getLong("seed_color", 0xFF4285F4)
+
         val savedBluetoothAddress = settings.getString("bluetooth_address", "")
         val savedIsAutoConfig = settings.getBoolean("is_auto_config", true)
         val savedMinimizeToTray = settings.getBoolean("minimize_to_tray", true)
@@ -180,6 +205,14 @@ class MainViewModel : ViewModel() {
         val savedEnableHazeEffect = settings.getBoolean("enable_haze_effect", false)
         
         val savedFloatingWindowEnabled = settings.getBoolean("floating_window_enabled", false)
+        val savedAutoCheckUpdate = settings.getBoolean("auto_check_update", true)
+        val savedUseSystemTitleBar = settings.getBoolean("use_system_title_bar", false)
+        
+        val hasLaunchedBefore = settings.getBoolean("has_launched_before", false)
+        val shouldShowFirstLaunchDialog = !hasLaunchedBefore
+        if (shouldShowFirstLaunchDialog) {
+            settings.putBoolean("has_launched_before", true)
+        }
 
         _uiState.update { 
             it.copy(
@@ -201,8 +234,11 @@ class MainViewModel : ViewModel() {
                 enableDereverb = savedDereverb,
                 dereverbLevel = savedDereverbLevel,
                 amplification = savedAmplification,
+                androidAudioSourceName = savedAndroidAudioSourceName,
                 autoStart = savedAutoStart,
                 enableStreamingNotification = savedEnableStreamingNotification,
+                keepScreenOn = savedKeepScreenOn,
+                oledPureBlack = savedOledPureBlack,
                 language = savedLanguage,
                 useDynamicColor = savedUseDynamicColor,
                 bluetoothAddress = savedBluetoothAddress,
@@ -218,7 +254,10 @@ class MainViewModel : ViewModel() {
                     cardOpacity = savedCardOpacity,
                     enableHazeEffect = savedEnableHazeEffect
                 ),
-                floatingWindowEnabled = savedFloatingWindowEnabled
+                floatingWindowEnabled = savedFloatingWindowEnabled,
+                autoCheckUpdate = savedAutoCheckUpdate,
+                useSystemTitleBar = savedUseSystemTitleBar,
+                showFirstLaunchDialog = shouldShowFirstLaunchDialog
             ) 
         }
         
@@ -264,18 +303,46 @@ class MainViewModel : ViewModel() {
             }
         }
 
+        if (savedAutoCheckUpdate) {
+            viewModelScope.launch {
+                val result = updateChecker.checkUpdate()
+                result.onSuccess { release ->
+                    if (release != null) {
+                        _uiState.update { it.copy(newVersionAvailable = release) }
+                    }
+                }
+            }
+        }
+
+        // Collect download progress from UpdateChecker
         viewModelScope.launch {
-            val result = updateChecker.checkUpdate()
-            result.onSuccess { release ->
-                if (release != null) {
-                    _uiState.update { it.copy(newVersionAvailable = release) }
+            updateChecker.downloadProgress.collect { progress ->
+                _uiState.update {
+                    it.copy(
+                        updateDownloadProgress = progress.progress,
+                        updateDownloadedBytes = progress.downloadedBytes,
+                        updateTotalBytes = progress.totalBytes
+                    )
                 }
             }
         }
     }
 
     fun dismissUpdateDialog() {
-        _uiState.update { it.copy(newVersionAvailable = null) }
+        _uiState.update {
+            it.copy(
+                newVersionAvailable = null,
+                updateDownloadState = UpdateDownloadState.Idle,
+                updateDownloadProgress = 0f,
+                updateErrorMessage = null
+            )
+        }
+    }
+
+    fun dismissFirstLaunchDialog() {
+        _uiState.update {
+            it.copy(showFirstLaunchDialog = false)
+        }
     }
 
     fun checkUpdateManual() {
@@ -294,6 +361,52 @@ class MainViewModel : ViewModel() {
                 _uiState.update { it.copy(snackbarMessage = strings.updateCheckFailed.format(e.message)) }
             }
         }
+    }
+
+    fun downloadAndInstallUpdate() {
+        val release = _uiState.value.newVersionAvailable ?: return
+        val asset = updateChecker.findAssetForPlatform(release)
+        if (asset == null) {
+            // No matching asset - fall back to opening the release page
+            openUrl(release.htmlUrl)
+            dismissUpdateDialog()
+            return
+        }
+
+        _uiState.update { it.copy(updateDownloadState = UpdateDownloadState.Downloading, updateErrorMessage = null) }
+
+        viewModelScope.launch {
+            val targetPath = getUpdateDownloadPath(asset.name)
+            val result = updateChecker.downloadUpdate(asset.browserDownloadUrl, targetPath)
+
+            result.onSuccess { filePath ->
+                _uiState.update { it.copy(updateDownloadState = UpdateDownloadState.Downloaded) }
+                _uiState.update { it.copy(updateDownloadState = UpdateDownloadState.Installing) }
+                try {
+                    installUpdate(filePath)
+                } catch (e: Exception) {
+                    Logger.e("MainViewModel", "Install failed", e)
+                    _uiState.update {
+                        it.copy(
+                            updateDownloadState = UpdateDownloadState.Failed,
+                            updateErrorMessage = e.message
+                        )
+                    }
+                }
+            }.onFailure { e ->
+                _uiState.update {
+                    it.copy(
+                        updateDownloadState = UpdateDownloadState.Failed,
+                        updateErrorMessage = e.message
+                    )
+                }
+            }
+        }
+    }
+
+    fun setAutoCheckUpdate(enabled: Boolean) {
+        _uiState.update { it.copy(autoCheckUpdate = enabled) }
+        settings.putBoolean("auto_check_update", enabled)
     }
     
     private fun updateAudioEngineConfig() {
@@ -365,6 +478,11 @@ class MainViewModel : ViewModel() {
     fun setFloatingWindowEnabled(enabled: Boolean) {
         _uiState.update { it.copy(floatingWindowEnabled = enabled) }
         settings.putBoolean("floating_window_enabled", enabled)
+    }
+
+    fun setUseSystemTitleBar(enabled: Boolean) {
+        _uiState.update { it.copy(useSystemTitleBar = enabled) }
+        settings.putBoolean("use_system_title_bar", enabled)
     }
 
     fun handleCloseRequest(onExit: () -> Unit, onHide: () -> Unit) {
@@ -612,7 +730,14 @@ class MainViewModel : ViewModel() {
         settings.putFloat("amplification", amp)
         updateAudioEngineConfig()
     }
-    
+
+    fun setAndroidAudioSource(sourceName: String) {
+        _uiState.update { it.copy(androidAudioSourceName = sourceName) }
+        settings.putString("android_audio_source", sourceName)
+        // Call Android-specific method to update audio source
+        audioEngine.setAudioSource(sourceName)
+    }
+
     fun setAutoStart(enabled: Boolean) {
         _uiState.update { it.copy(autoStart = enabled) }
         settings.putBoolean("auto_start", enabled)
@@ -622,6 +747,16 @@ class MainViewModel : ViewModel() {
         _uiState.update { it.copy(enableStreamingNotification = enabled) }
         settings.putBoolean("enable_streaming_notification", enabled)
         audioEngine.setStreamingNotificationEnabled(enabled)
+    }
+
+    fun setKeepScreenOn(enabled: Boolean) {
+        _uiState.update { it.copy(keepScreenOn = enabled) }
+        settings.putBoolean("keep_screen_on", enabled)
+    }
+
+    fun setOledPureBlack(enabled: Boolean) {
+        _uiState.update { it.copy(oledPureBlack = enabled) }
+        settings.putBoolean("oled_pure_black", enabled)
     }
 
     fun setUseDynamicColor(enable: Boolean) {

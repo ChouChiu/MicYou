@@ -97,11 +97,9 @@ import com.lanrhyme.micyou.animation.rememberGlowAnimation
 import com.lanrhyme.micyou.animation.rememberPulseAnimation
 import com.lanrhyme.micyou.animation.rememberRotationAnimation
 import com.lanrhyme.micyou.animation.rememberWaveAnimation
+import androidx.compose.material.icons.rounded.Settings
 import dev.chrisbanes.haze.HazeState
 import kotlinx.coroutines.delay
-import micyou.composeapp.generated.resources.Res
-import micyou.composeapp.generated.resources.icon_settings
-import org.jetbrains.compose.resources.painterResource
 import kotlin.math.abs
 import kotlin.math.cos
 import kotlin.math.min
@@ -123,6 +121,8 @@ fun DesktopHome(
     val platform = remember { getPlatform() }
     
     val strings = LocalAppStrings.current
+    val isDarkTheme = isDarkThemeActive(state.themeMode)
+    val forcePureBlackBackground = state.oledPureBlack && isDarkTheme
     
     var visible by remember { mutableStateOf(false) }
     var cardVisible by remember { mutableStateOf(false) }
@@ -205,7 +205,6 @@ fun DesktopHome(
     Surface(
         color = MaterialTheme.colorScheme.surface,
         contentColor = MaterialTheme.colorScheme.onSurface,
-        shape = RoundedCornerShape(22.dp),
         modifier = Modifier
             .fillMaxSize()
             .graphicsLayer {
@@ -218,7 +217,8 @@ fun DesktopHome(
             CustomBackground(
                 settings = state.backgroundSettings,
                 modifier = Modifier.fillMaxSize(),
-                hazeState = hazeState
+                hazeState = hazeState,
+                forcePureBlackBackground = forcePureBlackBackground
             )
             
             Row(
@@ -247,7 +247,7 @@ fun DesktopHome(
                     delayMillis = 200,
                     modifier = Modifier.weight(0.8f).fillMaxHeight(),
                     containerColor = MaterialTheme.colorScheme.secondaryContainer,
-                    shape = RoundedCornerShape(22.dp),
+                    shape = RoundedCornerShape(16.dp),
                     cardOpacity = state.backgroundSettings.cardOpacity,
                     hazeState = hazeState,
                     enableHaze = state.backgroundSettings.enableHazeEffect
@@ -288,7 +288,7 @@ private fun AnimatedCard(
     delayMillis: Int,
     modifier: Modifier = Modifier,
     containerColor: Color = MaterialTheme.colorScheme.surfaceContainer,
-    shape: RoundedCornerShape = RoundedCornerShape(22.dp),
+    shape: RoundedCornerShape = RoundedCornerShape(16.dp),
     cardOpacity: Float = 1f,
     hazeState: HazeState? = null,
     enableHaze: Boolean = false,
@@ -415,7 +415,7 @@ private fun NetworkConfigCard(
                         DropdownMenu(
                             expanded = showIpList,
                             onDismissRequest = { showIpList = false },
-                            shape = RoundedCornerShape(16.dp)
+                            shape = MaterialTheme.shapes.medium
                         ) {
                             currentIps.forEach { ip ->
                                 DropdownMenuItem(
@@ -462,12 +462,12 @@ private fun NetworkConfigCard(
                         colors = ExposedDropdownMenuDefaults.outlinedTextFieldColors(),
                         textStyle = MaterialTheme.typography.bodySmall,
                         singleLine = true,
-                        shape = RoundedCornerShape(16.dp)
+                        shape = MaterialTheme.shapes.medium
                     )
                     DropdownMenu(
                         expanded = expanded,
                         onDismissRequest = { expanded = false },
-                        shape = RoundedCornerShape(16.dp)
+                        shape = MaterialTheme.shapes.medium
                     ) {
                         DropdownMenuItem(
                             text = { Text(strings.modeWifi) },
@@ -1097,6 +1097,7 @@ private fun StatusControlPanel(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.End
             ) {
+                if (!state.useSystemTitleBar) {
                 AnimatedIconButton(
                     onClick = onMinimize,
                     content = {
@@ -1119,6 +1120,7 @@ private fun StatusControlPanel(
                         )
                     }
                 )
+                }
             }
         }
 
@@ -1188,7 +1190,7 @@ private fun StatusControlPanel(
                                         colors = CardDefaults.cardColors(
                                             containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.5f)
                                         ),
-                                        shape = RoundedCornerShape(8.dp)
+                                        shape = MaterialTheme.shapes.small
                                     ) {
                                         SelectionContainer {
                                             Text(
@@ -1269,7 +1271,7 @@ private fun StatusControlPanel(
                         modifier = Modifier.size(40.dp),
                         content = {
                             Icon(
-                                painter = painterResource(Res.drawable.icon_settings),
+                                Icons.Rounded.Settings,
                                 contentDescription = strings.settingsTitle,
                                 modifier = Modifier.size(20.dp),
                                 tint = MaterialTheme.colorScheme.onSurfaceVariant
