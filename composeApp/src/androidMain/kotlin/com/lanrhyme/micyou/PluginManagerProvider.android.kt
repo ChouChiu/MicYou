@@ -1,6 +1,7 @@
 package com.lanrhyme.micyou
 
 import com.lanrhyme.micyou.plugin.PluginInfo
+import com.lanrhyme.micyou.plugin.PluginUIProvider
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 
@@ -26,7 +27,7 @@ class AndroidPluginManagerProvider : PluginManagerProvider {
     
     override fun getPluginSettingsProvider(pluginId: String): Any? = null
     
-    override fun getPluginUIProvider(pluginId: String): Any? = null
+    override fun getPluginUIProvider(pluginId: String): PluginUIProvider? = null
 }
 
 actual fun createPluginManager(pluginsDirPath: String): PluginManagerProvider? {

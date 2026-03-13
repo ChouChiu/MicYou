@@ -111,7 +111,11 @@ data class AppUiState(
     val useSystemTitleBar: Boolean = false,
     val showFirstLaunchDialog: Boolean = false,
     
-    val plugins: List<PluginInfo> = emptyList()
+    val plugins: List<PluginInfo> = emptyList(),
+    
+    // Plugin Sync Warning
+    val showPluginSyncWarning: Boolean = false,
+    val missingPlugins: List<MissingPluginInfo> = emptyList()
 )
 
 enum class CloseAction(val label: String) {
@@ -861,5 +865,9 @@ class MainViewModel : ViewModel() {
         viewModelScope.launch {
             pluginManager?.deletePlugin(pluginId)
         }
+    }
+    
+    fun getPluginUIProvider(pluginId: String): Any? {
+        return pluginManager?.getPluginUIProvider(pluginId)
     }
 }

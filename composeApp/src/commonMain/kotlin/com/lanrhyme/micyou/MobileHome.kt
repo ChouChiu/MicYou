@@ -91,6 +91,7 @@ import com.lanrhyme.micyou.animation.rememberWaveAnimation
 import dev.chrisbanes.haze.HazeState
 import kotlinx.coroutines.delay
 import androidx.compose.material.icons.rounded.Bluetooth
+import androidx.compose.material.icons.rounded.Extension
 import androidx.compose.material.icons.rounded.Podcasts
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material.icons.rounded.Usb
@@ -651,6 +652,8 @@ private fun MobileBottomBar(
     cardOpacity: Float = 1f,
     hazeState: HazeState? = null
 ) {
+    var showPluginPopup by remember { mutableStateOf(false) }
+    
     HazeSurface(
         shape = MaterialTheme.shapes.medium,
         color = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = cardOpacity),
@@ -664,14 +667,59 @@ private fun MobileBottomBar(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            // Mute button (compact, like Desktop BottomBar)
-            MobileMuteButton(
-                isMuted = state.isMuted,
-                onToggle = { viewModel.toggleMute() },
-                strings = strings
-            )
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                MobileMuteButton(
+                    isMuted = state.isMuted,
+                    onToggle = { viewModel.toggleMute() },
+                    strings = strings
+                )
+                
+                val enabledPlugins = state.plugins.filter { it.isEnabled }
+                val pluginInteractionSource = remember { MutableInteractionSource() }
+                val isPluginPressed by pluginInteractionSource.collectIsPressedAsState()
+                val pluginScale by animateFloatAsState(
+                    targetValue = if (isPluginPressed) 0.9f else 1f,
+                    animationSpec = spring(dampingRatio = Spring.DampingRatioHighBouncy)
+                )
+                
+                val pluginBgColor by animateColorAsState(
+                    targetValue = if (enabledPlugins.isNotEmpty()) MaterialTheme.colorScheme.primaryContainer
+                    else MaterialTheme.colorScheme.surfaceContainerHighest,
+                    animationSpec = tween(200)
+                )
+                val pluginContentColor by animateColorAsState(
+                    targetValue = if (enabledPlugins.isNotEmpty()) MaterialTheme.colorScheme.onPrimaryContainer
+                    else MaterialTheme.colorScheme.onSurfaceVariant,
+                    animationSpec = tween(200)
+                )
+                
+                Surface(
+                    shape = MaterialTheme.shapes.small,
+                    color = pluginBgColor,
+                    modifier = Modifier.scale(pluginScale).clickable(pluginInteractionSource, null) { showPluginPopup = true }
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Icon(
+                            Icons.Rounded.Extension,
+                            contentDescription = strings.pluginsSection,
+                            tint = pluginContentColor,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        if (enabledPlugins.isNotEmpty()) {
+                            Text(
+                                enabledPlugins.size.toString(),
+                                style = MaterialTheme.typography.labelMedium,
+                                color = pluginContentColor
+                            )
+                        }
+                    }
+                }
+            }
             
-            // Stream state indicator dot
             val dotColor by animateColorAsState(
                 targetValue = when (state.streamState) {
                     StreamState.Idle -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f)
@@ -690,6 +738,22 @@ private fun MobileBottomBar(
                 modifier = Modifier.size(8.dp).scale(dotPulse)
             ) {}
         }
+    }
+    
+    if (showPluginPopup) {
+        PluginListPopup(
+            plugins = state.plugins,
+            onDismiss = { showPluginPopup = false },
+            onPluginClick = { plugin ->
+                showPluginPopup = false
+            },
+            onOpenSettings = {
+                showPluginPopup = false
+            },
+            getPluginUIProvider = { pluginId ->
+                viewModel.getPluginUIProvider(pluginId) as? com.lanrhyme.micyou.plugin.PluginUIProvider
+            }
+        )
     }
 }
 

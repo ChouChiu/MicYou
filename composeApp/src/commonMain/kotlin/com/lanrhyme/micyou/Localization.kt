@@ -178,6 +178,10 @@ data class AppStrings(
     val pluginImportFailed: String = "Failed to import plugin: %s",
     val pluginEnabled: String = "Plugin enabled",
     val pluginDisabled: String = "Plugin disabled",
+    val pluginSyncWarningTitle: String = "Plugin Sync Warning",
+    val pluginSyncWarningMessage: String = "The following cross-platform plugins are not installed on both devices:",
+    val missingOn: String = "Missing on",
+    val pluginSyncDismiss: String = "Dismiss",
 
     // BlackHole (macOS virtual audio)
     val blackHoleInstalled: String = "BlackHole is installed, please configure in System Settings",

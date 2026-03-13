@@ -25,6 +25,9 @@ actual class AudioEngine actual constructor() {
     private val _isMuted = MutableStateFlow(false)
     actual val isMuted: Flow<Boolean> = _isMuted
     
+    private val _pluginSyncReceived = MutableStateFlow<PluginSyncMessage?>(null)
+    val pluginSyncReceived: Flow<PluginSyncMessage?> = _pluginSyncReceived
+    
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private var job: Job? = null
     private var audioProcessingJob: Job? = null
@@ -44,6 +47,9 @@ actual class AudioEngine actual constructor() {
         },
         onMuteStateChanged = { muted ->
             _isMuted.value = muted
+        },
+        onPluginSyncReceived = { syncMessage ->
+            _pluginSyncReceived.value = syncMessage
         }
     )
     
@@ -194,6 +200,10 @@ actual class AudioEngine actual constructor() {
     actual suspend fun setMute(muted: Boolean) {
         _isMuted.value = muted
         networkServer.sendMuteState(muted)
+    }
+    
+    suspend fun sendPluginSync(plugins: List<PluginInfoMessage>, platform: String) {
+        networkServer.sendPluginSync(plugins, platform)
     }
     
     actual fun setMonitoring(enabled: Boolean) {

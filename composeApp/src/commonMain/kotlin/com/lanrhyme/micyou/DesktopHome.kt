@@ -41,14 +41,18 @@ import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Extension
 import androidx.compose.material.icons.filled.Link
 import androidx.compose.material.icons.filled.LinkOff
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.MicOff
 import androidx.compose.material.icons.filled.Minimize
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material.ripple.RippleAlpha
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Badge
+import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -97,7 +101,6 @@ import com.lanrhyme.micyou.animation.rememberGlowAnimation
 import com.lanrhyme.micyou.animation.rememberPulseAnimation
 import com.lanrhyme.micyou.animation.rememberRotationAnimation
 import com.lanrhyme.micyou.animation.rememberWaveAnimation
-import androidx.compose.material.icons.rounded.Settings
 import dev.chrisbanes.haze.HazeState
 import kotlinx.coroutines.delay
 import kotlin.math.abs
@@ -1075,6 +1078,7 @@ private fun StatusControlPanel(
     strings: AppStrings
 ) {
     var contentVisible by remember { mutableStateOf(false) }
+    var showPluginPopup by remember { mutableStateOf(false) }
     
     LaunchedEffect(Unit) {
         delay(300)
@@ -1265,6 +1269,40 @@ private fun StatusControlPanel(
                             tint = muteColor
                         )
                     }
+                    
+                    val enabledPlugins = state.plugins.filter { it.isEnabled }
+                    val pluginInteractionSource = remember { MutableInteractionSource() }
+                    val isPluginPressed by pluginInteractionSource.collectIsPressedAsState()
+                    val pluginScale by animateFloatAsState(
+                        targetValue = if (isPluginPressed) 0.85f else 1f,
+                        animationSpec = spring(dampingRatio = Spring.DampingRatioHighBouncy)
+                    )
+                    val pluginColor by animateColorAsState(
+                        targetValue = if (enabledPlugins.isNotEmpty()) MaterialTheme.colorScheme.primary
+                        else MaterialTheme.colorScheme.onSurfaceVariant,
+                        animationSpec = tween(300, easing = EasingFunctions.EaseInOutCubic)
+                    )
+                    
+                    BadgedBox(
+                        badge = {
+                            if (enabledPlugins.isNotEmpty()) {
+                                Badge { Text(enabledPlugins.size.toString()) }
+                            }
+                        }
+                    ) {
+                        IconButton(
+                            onClick = { showPluginPopup = true },
+                            interactionSource = pluginInteractionSource,
+                            modifier = Modifier.size(40.dp).scale(pluginScale)
+                        ) {
+                            Icon(
+                                Icons.Filled.Extension,
+                                contentDescription = strings.pluginsSection,
+                                modifier = Modifier.size(20.dp),
+                                tint = pluginColor
+                            )
+                        }
+                    }
 
                     AnimatedIconButton(
                         onClick = onOpenSettings,
@@ -1281,6 +1319,23 @@ private fun StatusControlPanel(
                 }
             }
         }
+    }
+    
+    if (showPluginPopup) {
+        PluginListPopup(
+            plugins = state.plugins,
+            onDismiss = { showPluginPopup = false },
+            onPluginClick = { plugin ->
+                showPluginPopup = false
+            },
+            onOpenSettings = {
+                showPluginPopup = false
+                onOpenSettings()
+            },
+            getPluginUIProvider = { pluginId ->
+                viewModel.getPluginUIProvider(pluginId) as? com.lanrhyme.micyou.plugin.PluginUIProvider
+            }
+        )
     }
 }
 

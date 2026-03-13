@@ -1,6 +1,7 @@
 package com.lanrhyme.micyou
 
 import com.lanrhyme.micyou.plugin.PluginInfo
+import com.lanrhyme.micyou.plugin.PluginUIProvider
 import kotlinx.coroutines.flow.StateFlow
 
 interface PluginManagerProvider {
@@ -12,7 +13,7 @@ interface PluginManagerProvider {
     fun deletePlugin(pluginId: String): Result<Unit>
     fun getPlugin(pluginId: String): Any?
     fun getPluginSettingsProvider(pluginId: String): Any?
-    fun getPluginUIProvider(pluginId: String): Any?
+    fun getPluginUIProvider(pluginId: String): PluginUIProvider?
 }
 
 expect fun createPluginManager(pluginsDirPath: String): PluginManagerProvider?

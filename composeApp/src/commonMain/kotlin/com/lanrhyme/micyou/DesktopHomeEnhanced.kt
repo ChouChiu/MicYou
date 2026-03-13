@@ -20,8 +20,8 @@ import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.hoverable
 import androidx.compose.foundation.gestures.scrollBy
+import androidx.compose.foundation.hoverable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
@@ -47,20 +47,30 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Extension
+import androidx.compose.material.icons.filled.Link
+import androidx.compose.material.icons.filled.LinkOff
+import androidx.compose.material.icons.rounded.Bluetooth
 import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Error
-import androidx.compose.material.icons.rounded.HourglassTop
-import androidx.compose.material.icons.rounded.Info
-import androidx.compose.material.icons.rounded.Mic
-import androidx.compose.material.icons.rounded.MicOff
 import androidx.compose.material.icons.rounded.Headphones
 import androidx.compose.material.icons.rounded.HeadsetOff
+import androidx.compose.material.icons.rounded.HourglassTop
+import androidx.compose.material.icons.rounded.Info
+import androidx.compose.material.icons.rounded.Language
+import androidx.compose.material.icons.rounded.Mic
+import androidx.compose.material.icons.rounded.MicOff
 import androidx.compose.material.icons.rounded.Minimize
+import androidx.compose.material.icons.rounded.Podcasts
 import androidx.compose.material.icons.rounded.Refresh
-import androidx.compose.material.icons.filled.Link
-import androidx.compose.material.icons.filled.LinkOff
+import androidx.compose.material.icons.rounded.Settings
+import androidx.compose.material.icons.rounded.Usb
+import androidx.compose.material.icons.rounded.Wifi
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Badge
+import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -69,7 +79,6 @@ import androidx.compose.material3.FloatingActionButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -99,15 +108,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.lanrhyme.micyou.animation.EasingFunctions
+import com.lanrhyme.micyou.plugin.PluginUIProvider
 import dev.chrisbanes.haze.HazeState
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import androidx.compose.material.icons.rounded.Bluetooth
-import androidx.compose.material.icons.rounded.Language
-import androidx.compose.material.icons.rounded.Podcasts
-import androidx.compose.material.icons.rounded.Settings
-import androidx.compose.material.icons.rounded.Usb
-import androidx.compose.material.icons.rounded.Wifi
 import kotlin.math.abs
 import kotlin.math.cos
 import kotlin.math.min
@@ -133,6 +137,7 @@ fun DesktopHomeEnhanced(
     
     var visible by remember { mutableStateOf(false) }
     var cardVisible by remember { mutableStateOf(false) }
+    var showPluginPopup by remember { mutableStateOf(false) }
     
     val hazeState = if (state.backgroundSettings.enableHazeEffect && state.backgroundSettings.hasCustomBackground) {
         rememberHazeState()
@@ -254,6 +259,7 @@ fun DesktopHomeEnhanced(
                     state = state,
                     viewModel = viewModel,
                     onOpenSettings = onOpenSettings,
+                    onShowPluginPopup = { showPluginPopup = true },
                     strings = strings,
                     cardOpacity = state.backgroundSettings.cardOpacity,
                     hazeState = hazeState,
@@ -262,6 +268,23 @@ fun DesktopHomeEnhanced(
                 )
             }
         }
+    }
+    
+    if (showPluginPopup) {
+        PluginListPopup(
+            plugins = state.plugins,
+            onDismiss = { showPluginPopup = false },
+            onPluginClick = { plugin ->
+                showPluginPopup = false
+            },
+            onOpenSettings = {
+                showPluginPopup = false
+                onOpenSettings()
+            },
+            getPluginUIProvider = { pluginId ->
+                viewModel.getPluginUIProvider(pluginId) as? PluginUIProvider
+            }
+        )
     }
 }
 
@@ -1281,7 +1304,7 @@ private fun MainControlButton(
                     isRunning -> Icons.Filled.LinkOff
                     else -> Icons.Filled.Link
                 },
-                null, modifier = Modifier.size(28.dp), tint = Color.White
+                null, modifier = Modifier.size(28.dp),
             )
         }
     }
@@ -1292,6 +1315,7 @@ private fun BottomBar(
     state: AppUiState,
     viewModel: MainViewModel,
     onOpenSettings: () -> Unit,
+    onShowPluginPopup: () -> Unit,
     strings: AppStrings,
     cardOpacity: Float = 1f,
     hazeState: HazeState? = null,
@@ -1313,6 +1337,19 @@ private fun BottomBar(
     val barOffsetY by animateFloatAsState(
         targetValue = if (visible) 0f else 30f,
         animationSpec = tween(500, delayMillis, easing = EasingFunctions.EaseOutExpo)
+    )
+    
+    val enabledPlugins = state.plugins.filter { it.isEnabled }
+    val pluginInteractionSource = remember { MutableInteractionSource() }
+    val isPluginPressed by pluginInteractionSource.collectIsPressedAsState()
+    val pluginScale by animateFloatAsState(
+        targetValue = if (isPluginPressed) 0.9f else 1f,
+        animationSpec = spring(dampingRatio = Spring.DampingRatioHighBouncy)
+    )
+    val pluginColor by animateColorAsState(
+        targetValue = if (enabledPlugins.isNotEmpty()) MaterialTheme.colorScheme.primary
+        else MaterialTheme.colorScheme.onSurfaceVariant,
+        animationSpec = tween(200)
     )
 
     HazeSurface(
@@ -1350,13 +1387,38 @@ private fun BottomBar(
                 )
             }
             
-            IconButton(onClick = onOpenSettings, modifier = Modifier.size(32.dp)) {
-                Icon(
-                    Icons.Rounded.Settings,
-                    contentDescription = strings.settingsTitle,
-                    modifier = Modifier.size(18.dp),
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                BadgedBox(
+                    badge = {
+                        if (enabledPlugins.isNotEmpty()) {
+                            Badge { Text(enabledPlugins.size.toString()) }
+                        }
+                    }
+                ) {
+                    IconButton(
+                        onClick = onShowPluginPopup,
+                        interactionSource = pluginInteractionSource,
+                        modifier = Modifier.size(32.dp).scale(pluginScale)
+                    ) {
+                        Icon(
+                            Icons.Filled.Extension,
+                            contentDescription = strings.pluginsSection,
+                            modifier = Modifier.size(18.dp),
+                            tint = pluginColor
+                        )
+                    }
+                }
+                
+                IconButton(onClick = onOpenSettings, modifier = Modifier.size(32.dp)) {
+                    Icon(
+                        Icons.Rounded.Settings,
+                        contentDescription = strings.settingsTitle,
+                        modifier = Modifier.size(18.dp),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
             }
         }
     }
