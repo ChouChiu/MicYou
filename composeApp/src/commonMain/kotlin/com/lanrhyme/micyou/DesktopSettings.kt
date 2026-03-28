@@ -1226,7 +1226,40 @@ fun SettingsContent(section: SettingsSection, viewModel: MainViewModel) {
                 } else {
                     // Desktop audio settings
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        // 1. 降噪开关
+                        // 1. 增益 (Amplifier) - 第一行显示
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(MaterialTheme.shapes.medium)
+                                .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = cardOpacity * 0.5f))
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .padding(horizontal = 16.dp, vertical = 12.dp)
+                                    .fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                            ) {
+                                Text(strings.gainLabel, style = MaterialTheme.typography.bodyMedium)
+
+                                Slider(
+                                    value = state.amplification,
+                                    onValueChange = { viewModel.setAmplification(it) },
+                                    valueRange = -50.0f..50.0f,
+                                    modifier = Modifier.weight(1f)
+                                )
+
+                                val gainText = if (state.amplification >= 0) "+${state.amplification.toInt()} dB" else "${state.amplification.toInt()} dB"
+                                Text(
+                                    gainText,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    modifier = Modifier.width(60.dp),
+                                    textAlign = TextAlign.End
+                                )
+                            }
+                        }
+
+                        // 2. 降噪 (Noise Suppression)
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -1280,7 +1313,7 @@ fun SettingsContent(section: SettingsSection, viewModel: MainViewModel) {
                             }
                         }
 
-                        // 2. 去混响
+                        // 3. 去混响 (Dereverb)
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -1312,48 +1345,6 @@ fun SettingsContent(section: SettingsSection, viewModel: MainViewModel) {
                                         value = state.dereverbLevel,
                                         onValueChange = { viewModel.setDereverbLevel(it) },
                                         valueRange = 0f..1f
-                                    )
-                                }
-                            }
-                        }
-
-                        // 3. 放大器
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clip(MaterialTheme.shapes.medium)
-                                .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = cardOpacity * 0.5f))
-                        ) {
-                            ListItem(
-                                headlineContent = { Text(strings.amplificationLabel) },
-                                supportingContent = { Text(strings.gainLabel) },
-                                trailingContent = { 
-                                    Switch(
-                                        checked = state.amplification > 0, 
-                                        onCheckedChange = { enabled ->
-                                            viewModel.setAmplification(if (enabled) 2.0f else 0f)
-                                        }
-                                    ) 
-                                },
-                                modifier = Modifier.clickable { 
-                                    viewModel.setAmplification(if (state.amplification > 0) 0f else 2.0f)
-                                },
-                                colors = ListItemDefaults.colors(containerColor = Color.Transparent)
-                            )
-                        }
-                        if (state.amplification > 0) {
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .clip(MaterialTheme.shapes.medium)
-                                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = cardOpacity * 0.5f))
-                            ) {
-                                Column(modifier = Modifier.padding(16.dp)) {
-                                    Text("${strings.amplificationMultiplierLabel}: ${state.amplification}x", style = MaterialTheme.typography.bodySmall)
-                                    Slider(
-                                        value = state.amplification,
-                                        onValueChange = { viewModel.setAmplification(it) },
-                                        valueRange = 0.5f..5f
                                     )
                                 }
                             }
