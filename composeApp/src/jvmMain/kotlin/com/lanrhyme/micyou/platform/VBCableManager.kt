@@ -370,7 +370,19 @@ object VBCableManager {
             }
         } catch (e: Exception) {
             Logger.e("VBCableManager", "Installation error: ${e.message}", e)
-            progressCallback(strings.installError.replace("%s", e.message ?: "Unknown error"))
+            
+            val errorMsg = e.message ?: ""
+            val needsAdmin = errorMsg.contains("elevation", ignoreCase = true) ||
+                            errorMsg.contains("administrator", ignoreCase = true) ||
+                            errorMsg.contains("权限", ignoreCase = true) ||
+                            errorMsg.contains("提升", ignoreCase = true) ||
+                            errorMsg.contains("admin", ignoreCase = true)
+            
+            if (needsAdmin) {
+                progressCallback(strings.vbcableNeedsAdmin)
+            } else {
+                progressCallback(strings.installError.replace("%s", e.message ?: "Unknown error"))
+            }
         } finally {
             delay(2000)
             progressCallback(null)

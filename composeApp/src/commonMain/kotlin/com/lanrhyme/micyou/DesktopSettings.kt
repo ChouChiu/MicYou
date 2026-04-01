@@ -100,6 +100,7 @@ import dev.chrisbanes.haze.HazeState
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.material.icons.rounded.InstallDesktop
 import androidx.compose.material.icons.rounded.Delete
 
@@ -1771,6 +1772,8 @@ fun VBCableSettingsSection(
     var installing by remember { mutableStateOf(false) }
     var statusMessage by remember { mutableStateOf<String?>(null) }
     
+    val scope = rememberCoroutineScope()
+    
     val progressFlow = getVBCableInstallProgress()
     val progress by progressFlow.collectAsState(initial = null)
     
@@ -1832,7 +1835,7 @@ fun VBCableSettingsSection(
                     onClick = { 
                         installing = true
                         statusMessage = strings.vbcableInstalling
-                        kotlinx.coroutines.GlobalScope.launch {
+                        scope.launch {
                             installVBCable()
                         }
                     },
@@ -1852,7 +1855,7 @@ fun VBCableSettingsSection(
                     onClick = { 
                         installing = true
                         statusMessage = strings.vbcableUninstalling
-                        kotlinx.coroutines.GlobalScope.launch {
+                        scope.launch {
                             uninstallVirtualDevice()
                         }
                     },
