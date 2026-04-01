@@ -70,6 +70,7 @@
   "enableHazeEffectLabel": "磨砂玻璃效果",
   "enableNsLabel": "降噪 (Noise Suppression)",
   "enableVadLabel": "語音活動偵測 (VAD)",
+  "enableStreamingNotificationLabel": "串流通知",
   "exportLog": "匯出日誌",
   "exportLogDesc": "匯出應用程式日誌嚟除錯",
   "firewallConfirm": "試吓加",

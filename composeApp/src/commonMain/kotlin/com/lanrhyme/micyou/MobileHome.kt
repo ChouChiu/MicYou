@@ -254,14 +254,6 @@ private fun AnimatedCardVisibility(
         targetValue = if (visible) 1f else 0f,
         animationSpec = tween(400, delayMillis, easing = EasingFunctions.EaseOutExpo)
     )
-    val cardScale by animateFloatAsState(
-        targetValue = if (visible) 1f else 0.9f,
-        animationSpec = spring(
-            dampingRatio = Spring.DampingRatioMediumBouncy,
-            stiffness = Spring.StiffnessLow,
-            visibilityThreshold = 0.001f
-        )
-    )
     val cardOffsetY by animateFloatAsState(
         targetValue = if (visible) 0f else 30f,
         animationSpec = tween(500, delayMillis, easing = EasingFunctions.EaseOutExpo)
@@ -270,8 +262,6 @@ private fun AnimatedCardVisibility(
     Box(
         modifier = modifier.graphicsLayer {
             this.alpha = cardAlpha
-            this.scaleX = cardScale
-            this.scaleY = cardScale
             translationY = cardOffsetY
         }
     ) {

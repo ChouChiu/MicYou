@@ -70,6 +70,7 @@
   "enableHazeEffectLabel": "毛玻璃效果",
   "enableNsLabel": "开启噪音压制项",
   "enableVadLabel": "启用声音活动检测项",
+  "enableStreamingNotificationLabel": "流媒体通知项",
   "exportLog": "出口日志记录项目",
   "exportLogDesc": "出口应用日志记录为了调试用",
   "firewallConfirm": "尝试去添加规则吧",

@@ -70,6 +70,7 @@
   "enableHazeEffectLabel": "毛玻璃效果~",
   "enableNsLabel": "降噪喵~ 🔇",
   "enableVadLabel": "语音检测喵~",
+  "enableStreamingNotificationLabel": "流媒体通知喵~",
   "exportLog": "导出日志喵~",
   "exportLogDesc": "导出应用日志用于调试喵~",
   "firewallConfirm": "尝试添加规则喵~",

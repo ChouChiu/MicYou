@@ -211,15 +211,6 @@ fun DesktopSettings(
     var visible by remember { mutableStateOf(false) }
     var contentVisible by remember { mutableStateOf(false) }
     
-    val scale by animateFloatAsState(
-        targetValue = if (visible) 1f else 0.9f,
-        animationSpec = spring(
-            dampingRatio = Spring.DampingRatioMediumBouncy,
-            stiffness = Spring.StiffnessLow
-        ),
-        label = "pageScale"
-    )
-    
     val alpha by animateFloatAsState(
         targetValue = if (visible) 1f else 0f,
         animationSpec = tween(400, easing = EasingFunctions.EaseOutExpo),
@@ -252,8 +243,6 @@ fun DesktopSettings(
         modifier = Modifier
             .fillMaxSize()
             .graphicsLayer {
-                scaleX = scale
-                scaleY = scale
                 this.alpha = alpha
             }
     ) {
@@ -707,14 +696,6 @@ fun MobileLayout(viewModel: MainViewModel, onClose: () -> Unit, hazeState: HazeS
                     animationSpec = tween(350, easing = EasingFunctions.EaseOutExpo),
                     label = "cardAlpha"
                 )
-                val cardScale by animateFloatAsState(
-                    targetValue = if (cardAnimated) 1f else 0.9f,
-                    animationSpec = spring(
-                        dampingRatio = Spring.DampingRatioMediumBouncy,
-                        stiffness = Spring.StiffnessLow
-                    ),
-                    label = "cardScale"
-                )
                 val cardOffsetY by animateFloatAsState(
                     targetValue = if (cardAnimated) 0f else 60f,
                     animationSpec = tween(400, easing = EasingFunctions.EaseOutExpo),
@@ -726,8 +707,6 @@ fun MobileLayout(viewModel: MainViewModel, onClose: () -> Unit, hazeState: HazeS
                         .fillMaxWidth()
                         .graphicsLayer {
                             this.alpha = cardAlpha
-                            this.scaleX = cardScale
-                            this.scaleY = cardScale
                             translationY = cardOffsetY
                         }
                 ) {
