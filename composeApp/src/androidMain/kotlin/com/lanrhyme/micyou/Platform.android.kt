@@ -18,7 +18,7 @@ class AndroidPlatform : Platform {
 
 actual fun getPlatform(): Platform = AndroidPlatform()
 
-actual fun uninstallVBCable() {
+actual suspend fun uninstallVBCable() {
     // No-op on Android
 }
 

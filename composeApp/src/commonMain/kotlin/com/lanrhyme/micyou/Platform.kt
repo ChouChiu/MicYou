@@ -16,7 +16,7 @@ interface Platform {
 
 expect fun getPlatform(): Platform
 
-expect fun uninstallVBCable()
+expect suspend fun uninstallVBCable()
 
 expect fun getAppVersion(): String
 expect fun openUrl(url: String)

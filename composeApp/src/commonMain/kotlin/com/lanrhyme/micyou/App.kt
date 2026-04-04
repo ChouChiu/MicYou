@@ -178,7 +178,7 @@ fun App(
             // VB-Cable Detection Dialog
             if (showVBCableDialog) {
                 AlertDialog(
-                    onDismissRequest = { },
+                    onDismissRequest = { finalViewModel.setShowVBCableDialog(false) },
                     title = { Text(strings.vbcableDetectTitle) },
                     text = {
                         Column {

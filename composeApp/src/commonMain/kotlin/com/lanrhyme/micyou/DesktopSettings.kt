@@ -567,7 +567,7 @@ fun VBCableManagementSection(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    "VB-Cable",
+                    strings.vbcableSettingsLabel,
                     style = MaterialTheme.typography.titleMedium,
                     color = MaterialTheme.colorScheme.primary
                 )
