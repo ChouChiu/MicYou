@@ -12,7 +12,6 @@ import java.net.InetAddress
 class JVMPlatform: Platform {
     override val name: String = "Java ${System.getProperty("java.version")}"
     override val type: PlatformType = PlatformType.Desktop
-    override val isWindows: Boolean = System.getProperty("os.name", "").lowercase().contains("win")
     override val ipAddress: String
         get() = ipAddresses.firstOrNull() ?: "Unknown"
 
@@ -63,14 +62,6 @@ actual fun getPlatform(): Platform = JVMPlatform()
 
 actual fun uninstallVBCable() {
     VirtualAudioDeviceManager.uninstallVBCable()
-}
-
-actual suspend fun installVBCable() {
-    VirtualAudioDeviceManager.installVirtualDevice()
-}
-
-actual fun getVBCableInstallProgress(): kotlinx.coroutines.flow.Flow<String?> {
-    return VirtualAudioDeviceManager.installProgress
 }
 
 actual fun getAppVersion(): String {
@@ -141,7 +132,3 @@ actual fun getDynamicColorScheme(isDark: Boolean): ColorScheme? {
 }
 
 actual fun getAudioSourceOptions(): List<AudioSourceOption> = emptyList()
-
-actual fun isVirtualDeviceInstalled(): Boolean = VirtualAudioDeviceManager.isVirtualDeviceInstalled()
-
-actual suspend fun uninstallVirtualDevice() = VirtualAudioDeviceManager.uninstallVirtualDevice()

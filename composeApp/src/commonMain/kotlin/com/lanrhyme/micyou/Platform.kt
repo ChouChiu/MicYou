@@ -10,7 +10,6 @@ enum class PlatformType {
 interface Platform {
     val name: String
     val type: PlatformType
-    val isWindows: Boolean
     val ipAddress: String
     val ipAddresses: List<String>
 }
@@ -18,8 +17,6 @@ interface Platform {
 expect fun getPlatform(): Platform
 
 expect fun uninstallVBCable()
-expect suspend fun installVBCable()
-expect fun getVBCableInstallProgress(): kotlinx.coroutines.flow.Flow<String?>
 
 expect fun getAppVersion(): String
 expect fun openUrl(url: String)
