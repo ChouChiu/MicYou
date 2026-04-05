@@ -46,6 +46,7 @@ object VirtualAudioDeviceManager {
                 _installProgress.value = null
             }
         }
+        Unit
     }
     
     private suspend fun installLinuxVirtualDevice() {

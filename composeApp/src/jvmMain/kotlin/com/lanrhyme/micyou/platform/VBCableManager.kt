@@ -11,23 +11,41 @@ import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.FileOutputStream
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicBoolean
 import javax.sound.sampled.AudioSystem
+
+enum class VBCableInstallError {
+    None,
+    AlreadyInstalling,
+    InstallerNotFound,
+    DownloadFailed,
+    ExtractionFailed,
+    UacDenied,
+    InstallationTimeout,
+    ConfigurationFailed,
+    DeviceNotDetected,
+    Unknown
+}
+
+data class VBCableInstallResult(
+    val success: Boolean,
+    val error: VBCableInstallError = VBCableInstallError.None,
+    val message: String = ""
+)
 
 object VBCableManager {
     private const val CABLE_OUTPUT_NAME = "CABLE Output"
     private const val CABLE_INPUT_NAME = "CABLE Input"
     private const val INSTALLER_NAME = "VBCABLE_Setup_x64.exe"
     private const val SOUND_VOLUME_VIEW_NAME = "SoundVolumeView.exe"
-    private const val KEY_CONFIGURED = "vbcable_configured"
     private const val KEY_ORIGINAL_SPEAKER = "original_speaker"
 
     private val settings = SettingsFactory.getSettings()
     
-    private var initialized = false
+    private val isInstalling = AtomicBoolean(false)
     private var originalSpeaker: String? = null
     
     init {
-        initialized = settings.getBoolean(KEY_CONFIGURED, false)
         val savedSpeaker = settings.getString(KEY_ORIGINAL_SPEAKER, "")
         originalSpeaker = if (savedSpeaker.isNotBlank()) savedSpeaker else null
     }
@@ -44,8 +62,6 @@ object VBCableManager {
     fun isInstalled(): Boolean {
         if (!PlatformInfo.isWindows) return false
         
-        if (initialized) return true
-        
         return try {
             val mixers = AudioSystem.getMixerInfo()
             mixers.any { 
@@ -58,11 +74,9 @@ object VBCableManager {
         }
     }
 
-    fun isInitialized(): Boolean = initialized
+    fun isInitialized(): Boolean = isInstalled()
 
     fun markInitialized() {
-        initialized = true
-        settings.putBoolean(KEY_CONFIGURED, true)
     }
 
     private fun getSoundVolumeViewPath(): File? {
@@ -228,30 +242,77 @@ object VBCableManager {
         }
     }
 
-    private fun configureVBCableDevices() {
-        disableCableInput16ch()
+    private fun configureVBCableDevices(sampleRate: Int = 48000, channelCount: Int = 2): Boolean {
+        var success = true
         
-        setDeviceFormat("VB-Audio Virtual Cable\\Device\\CABLE Input\\Render", 16, 48000, 2)
-        setDeviceFormat("VB-Audio Virtual Cable\\Device\\CABLE Output\\Capture", 16, 48000, 1)
-    }
-
-    suspend fun install(progressCallback: (String?) -> Unit) = withContext(Dispatchers.IO) {
-        if (initialized) {
-            Logger.i("VBCableManager", "VB-Cable already configured, skipping")
-            return@withContext
+        if (!disableCableInput16ch()) {
+            Logger.w("VBCableManager", "Failed to disable CABLE Input 16ch, continuing...")
         }
         
+        if (!setDeviceFormat("VB-Audio Virtual Cable\\Device\\CABLE Input\\Render", 16, sampleRate, channelCount)) {
+            Logger.w("VBCableManager", "Failed to set CABLE Input format")
+            success = false
+        }
+        
+        if (!setDeviceFormat("VB-Audio Virtual Cable\\Device\\CABLE Output\\Capture", 16, sampleRate, 1)) {
+            Logger.w("VBCableManager", "Failed to set CABLE Output format")
+            success = false
+        }
+        
+        return success
+    }
+
+    fun configureDevices(sampleRate: Int, channelCount: Int): VBCableInstallResult {
+        if (!isInstalled()) {
+            return VBCableInstallResult(false, VBCableInstallError.DeviceNotDetected, "VB-Cable not installed")
+        }
+        
+        val configSuccess = configureVBCableDevices(sampleRate, channelCount)
+        val micSuccess = setCableOutputAsDefaultMic()
+        
+        return if (configSuccess && micSuccess) {
+            VBCableInstallResult(true, VBCableInstallError.None, "Configuration complete")
+        } else {
+            VBCableInstallResult(false, VBCableInstallError.ConfigurationFailed, 
+                "Partial configuration failure: format=$configSuccess, mic=$micSuccess")
+        }
+    }
+
+    suspend fun install(progressCallback: (String?) -> Unit): VBCableInstallResult = withContext(Dispatchers.IO) {
+        if (!isInstalling.compareAndSet(false, true)) {
+            Logger.w("VBCableManager", "Installation already in progress")
+            progressCallback(strings.installInstalling)
+            return@withContext VBCableInstallResult(false, VBCableInstallError.AlreadyInstalling, "Installation already in progress")
+        }
+        
+        try {
+            installInternal(progressCallback)
+        } finally {
+            isInstalling.set(false)
+        }
+    }
+    
+    private suspend fun installInternal(progressCallback: (String?) -> Unit): VBCableInstallResult {
         if (isInstalled()) {
             Logger.i("VBCableManager", "VB-Cable already installed, configuring...")
             progressCallback(strings.installConfiguring)
-            configureVBCableDevices()
+            
+            val settings = SettingsFactory.getSettings()
+            val savedSampleRateName = settings.getString("sample_rate", "Rate48000")
+            val savedChannelCountName = settings.getString("channel_count", "Stereo")
+            val sampleRate = when (savedSampleRateName) {
+                "Rate16000" -> 16000
+                "Rate44100" -> 44100
+                else -> 48000
+            }
+            val channelCount = if (savedChannelCountName == "Mono") 1 else 2
+            
+            configureVBCableDevices(sampleRate, channelCount)
             setCableOutputAsDefaultMic()
-            initialized = true
-            settings.putBoolean(KEY_CONFIGURED, true)
             progressCallback(strings.installConfigComplete)
             delay(1000)
             progressCallback(null)
-            return@withContext
+            return VBCableInstallResult(true, VBCableInstallError.None, "Already installed and configured")
         }
         
         val currentSpeaker = getDefaultPlaybackDevice()
@@ -264,19 +325,26 @@ object VBCableManager {
         progressCallback(strings.installCheckingPackage)
         
         var installerFile = getVBCableSetupPath()
+        var downloadError: VBCableInstallError? = null
+        var downloadErrorMsg: String? = null
         
         if (installerFile == null || !installerFile.exists()) {
             Logger.i("VBCableManager", "Installer not found locally. Attempting to download...")
             progressCallback(strings.installDownloading)
-            installerFile = downloadAndExtractInstaller()
+            val downloadResult = downloadAndExtractInstaller()
+            installerFile = downloadResult.file
+            downloadError = downloadResult.error
+            downloadErrorMsg = downloadResult.errorMessage
         }
 
         if (installerFile == null || !installerFile.exists()) {
-            Logger.e("VBCableManager", "VB-Cable installer not found. Please place '$INSTALLER_NAME' in resources or ensure internet access.")
+            val error = downloadError ?: VBCableInstallError.InstallerNotFound
+            val errorMsg = downloadErrorMsg ?: "Installer not found. Please place '$INSTALLER_NAME' in resources or ensure internet access."
+            Logger.e("VBCableManager", "VB-Cable installer not found: $errorMsg")
             progressCallback(strings.installDownloadFailed)
             delay(2000)
             progressCallback(null)
-            return@withContext
+            return VBCableInstallResult(false, error, errorMsg)
         }
 
         Logger.i("VBCableManager", "Installing VB-Cable...")
@@ -291,7 +359,6 @@ object VBCableManager {
                 Logger.i("VBCableManager", "Using license key for installation")
             }
             
-            // Use PowerShell to run installer with elevated privileges (UAC)
             val argsString = installArgs.joinToString("','")
             val powerShellCommand = "Start-Process -FilePath '${installerFile.absolutePath}' -ArgumentList '$argsString' -Verb RunAs -Wait"
             
@@ -300,7 +367,16 @@ object VBCableManager {
             processBuilder.redirectErrorStream(true)
             val process = processBuilder.start()
             
-            process.waitFor(60, TimeUnit.SECONDS)
+            val exitCode = process.waitFor(120, TimeUnit.SECONDS)
+            
+            if (!exitCode) {
+                Logger.e("VBCableManager", "Installation process timed out")
+                progressCallback(strings.installError.replace("%s", "Installation timeout"))
+                delay(2000)
+                progressCallback(null)
+                return VBCableInstallResult(false, VBCableInstallError.InstallationTimeout, 
+                    "Installation process timed out after 120 seconds")
+            }
             
             Logger.i("VBCableManager", "Waiting for device initialization...")
             progressCallback("Waiting for device initialization...")
@@ -346,41 +422,78 @@ object VBCableManager {
             
             if (installed) {
                 progressCallback(strings.installConfiguring)
-                configureVBCableDevices()
-                setCableOutputAsDefaultMic()
+                
+                val savedSampleRateName = settings.getString("sample_rate", "Rate48000")
+                val savedChannelCountName = settings.getString("channel_count", "Stereo")
+                val sampleRate = when (savedSampleRateName) {
+                    "Rate16000" -> 16000
+                    "Rate44100" -> 44100
+                    else -> 48000
+                }
+                val channelCount = if (savedChannelCountName == "Mono") 1 else 2
+                
+                val configSuccess = configureVBCableDevices(sampleRate, channelCount)
+                val micSuccess = setCableOutputAsDefaultMic()
                 
                 originalSpeaker?.let { speaker ->
                     setDefaultPlaybackDevice(speaker)
                 }
                 
-                initialized = true
-                settings.putBoolean(KEY_CONFIGURED, true)
                 progressCallback(strings.installConfigComplete)
+                delay(2000)
+                progressCallback(null)
+                
+                return if (configSuccess && micSuccess) {
+                    VBCableInstallResult(true, VBCableInstallError.None, "Installation and configuration complete")
+                } else {
+                    VBCableInstallResult(true, VBCableInstallError.ConfigurationFailed, 
+                        "Installed but configuration partially failed: format=$configSuccess, mic=$micSuccess")
+                }
             } else {
                 progressCallback(strings.installNotCompleted)
+                delay(2000)
+                progressCallback(null)
+                return VBCableInstallResult(false, VBCableInstallError.DeviceNotDetected, 
+                    "Installation completed but device not detected after ${maxWait}s")
             }
         } catch (e: Exception) {
             Logger.e("VBCableManager", "Installation error: ${e.message}", e)
             
             val errorMsg = e.message ?: ""
-            val needsAdmin = errorMsg.contains("elevation", ignoreCase = true) ||
-                            errorMsg.contains("administrator", ignoreCase = true) ||
-                            errorMsg.contains("权限", ignoreCase = true) ||
-                            errorMsg.contains("提升", ignoreCase = true) ||
-                            errorMsg.contains("admin", ignoreCase = true)
-            
-            if (needsAdmin) {
-                progressCallback("Administrator privileges required")
-            } else {
-                progressCallback(strings.installError.replace("%s", e.message ?: "Unknown error"))
+            val errorType = when {
+                errorMsg.contains("elevation", ignoreCase = true) ||
+                errorMsg.contains("administrator", ignoreCase = true) ||
+                errorMsg.contains("权限", ignoreCase = true) ||
+                errorMsg.contains("提升", ignoreCase = true) ||
+                errorMsg.contains("admin", ignoreCase = true) ||
+                errorMsg.contains("denied", ignoreCase = true) -> VBCableInstallError.UacDenied
+                
+                errorMsg.contains("timeout", ignoreCase = true) -> VBCableInstallError.InstallationTimeout
+                
+                else -> VBCableInstallError.Unknown
             }
-        } finally {
+            
+            val userMessage = when (errorType) {
+                VBCableInstallError.UacDenied -> "Administrator privileges required. Please approve the UAC prompt."
+                VBCableInstallError.InstallationTimeout -> "Installation timed out. Please try again."
+                else -> strings.installError.replace("%s", e.message ?: "Unknown error")
+            }
+            
+            progressCallback(userMessage)
             delay(2000)
             progressCallback(null)
+            
+            return VBCableInstallResult(false, errorType, e.message ?: "Unknown error")
         }
     }
 
-    private fun downloadAndExtractInstaller(): File? {
+    private data class DownloadResult(
+        val file: File?,
+        val error: VBCableInstallError = VBCableInstallError.None,
+        val errorMessage: String = ""
+    )
+
+    private fun downloadAndExtractInstaller(): DownloadResult {
         val downloadUrl = "https://download.vb-audio.com/Download_CABLE/VBCABLE_Driver_Pack45.zip"
         val zipFile = File.createTempFile("vbcable_pack", ".zip")
         val outputDir = File(System.getProperty("java.io.tmpdir"), "vbcable_extracted_${System.currentTimeMillis()}")
@@ -426,22 +539,33 @@ object VBCableManager {
             val setupFile = File(outputDir, INSTALLER_NAME)
             if (setupFile.exists()) {
                 Logger.i("VBCableManager", "Found installer at ${setupFile.absolutePath}")
-                return setupFile
+                return DownloadResult(setupFile)
             }
             
             val found = outputDir.walkTopDown().find { it.name.equals(INSTALLER_NAME, ignoreCase = true) }
             if (found != null) {
                 Logger.i("VBCableManager", "Found installer at ${found.absolutePath}")
-                return found
+                return DownloadResult(found)
             }
             
+            return DownloadResult(null, VBCableInstallError.ExtractionFailed, 
+                "Installer not found in downloaded package")
+                
+        } catch (e: java.net.SocketTimeoutException) {
+            Logger.e("VBCableManager", "Download timeout: ${e.message}")
+            return DownloadResult(null, VBCableInstallError.DownloadFailed, "Download timeout: ${e.message}")
+        } catch (e: java.net.UnknownHostException) {
+            Logger.e("VBCableManager", "Network error: ${e.message}")
+            return DownloadResult(null, VBCableInstallError.DownloadFailed, "Network error: ${e.message}")
+        } catch (e: java.io.IOException) {
+            Logger.e("VBCableManager", "I/O error: ${e.message}")
+            return DownloadResult(null, VBCableInstallError.DownloadFailed, "I/O error: ${e.message}")
         } catch (e: Exception) {
             Logger.e("VBCableManager", "Failed to download or extract VB-Cable driver: ${e.message}", e)
+            return DownloadResult(null, VBCableInstallError.Unknown, e.message ?: "Unknown error")
         } finally {
             zipFile.delete()
         }
-        
-        return null
     }
 
     fun setDefaultMicrophone(): Boolean {
