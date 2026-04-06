@@ -24,7 +24,7 @@ data class SettingsUiState(
     val autoCheckUpdate: Boolean = true,
     val useMirrorDownload: Boolean = false,
     val pocketMode: Boolean = false,
-    val visualizerStyle: VisualizerStyle = VisualizerStyle.Ripple,
+    val visualizerStyle: VisualizerStyle = VisualizerStyle.VolumeRing,
     val backgroundSettings: BackgroundSettings = BackgroundSettings(),
     val floatingWindowEnabled: Boolean = false,
     val useSystemTitleBar: Boolean = false,
@@ -68,11 +68,11 @@ class SettingsViewModel : ViewModel() {
         }
         
         val savedPocketMode = settings.getBoolean("pocket_mode", false)
-        val savedVisualizerStyleName = settings.getString("visualizer_style", VisualizerStyle.Ripple.name)
+        val savedVisualizerStyleName = settings.getString("visualizer_style", VisualizerStyle.VolumeRing.name)
         val savedVisualizerStyle = try {
             VisualizerStyle.valueOf(savedVisualizerStyleName)
         } catch (e: Exception) {
-            VisualizerStyle.Ripple
+            VisualizerStyle.VolumeRing
         }
         
         val savedBackgroundImagePath = settings.getString("background_image_path", "")

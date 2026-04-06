@@ -66,7 +66,7 @@ data class AppUiState(
     val vadThreshold: Int = 10,
     val enableDereverb: Boolean = false,
     val dereverbLevel: Float = 0.5f,
-    val amplification: Float = 0.0f,
+    val amplification: Float = 15.0f,
     val androidAudioSourceName: String = "Unprocessed",
     val audioConfigRevision: Int = 0,
     
@@ -86,7 +86,7 @@ data class AppUiState(
     val autoCheckUpdate: Boolean = true,
     val useMirrorDownload: Boolean = false,
     val pocketMode: Boolean = true,
-    val visualizerStyle: VisualizerStyle = VisualizerStyle.Ripple,
+    val visualizerStyle: VisualizerStyle = VisualizerStyle.VolumeRing,
     val backgroundSettings: BackgroundSettings = BackgroundSettings(),
     val floatingWindowEnabled: Boolean = false,
     val useSystemTitleBar: Boolean = false,
