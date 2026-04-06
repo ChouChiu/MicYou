@@ -33,7 +33,7 @@ data class AudioStreamUiState(
     val vadThreshold: Int = 10,
     val enableDereverb: Boolean = false,
     val dereverbLevel: Float = 0.5f,
-    val amplification: Float = 0.0f,
+    val amplification: Float = 15.0f,
     val androidAudioSourceName: String = "Unprocessed",
     val audioConfigRevision: Int = 0
 )
@@ -85,7 +85,7 @@ class AudioStreamViewModel : ViewModel() {
         val savedDereverb = settings.getBoolean("enable_dereverb", false)
         val savedDereverbLevel = settings.getFloat("dereverb_level", 0.5f)
 
-        val savedAmplification = settings.getFloat("amplification", 0.0f)
+        val savedAmplification = settings.getFloat("amplification", 15.0f)
 
         val savedAndroidAudioSourceName = settings.getString("android_audio_source", "Unprocessed")
         val savedBluetoothAddress = settings.getString("bluetooth_address", "")

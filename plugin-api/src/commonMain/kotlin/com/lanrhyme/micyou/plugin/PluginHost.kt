@@ -23,7 +23,7 @@ data class AudioConfig(
     val vadThreshold: Int = 10,
     val enableDereverb: Boolean = false,
     val dereverbLevel: Float = 0.5f,
-    val amplification: Float = 0.0f
+    val amplification: Float = 15.0f
 )
 
 data class ConnectionInfo(
