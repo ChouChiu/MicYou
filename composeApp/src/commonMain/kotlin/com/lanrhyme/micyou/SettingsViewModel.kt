@@ -23,13 +23,15 @@ data class SettingsUiState(
     val rememberCloseAction: Boolean = false,
     val autoCheckUpdate: Boolean = true,
     val useMirrorDownload: Boolean = false,
+    val mirrorCdk: String = "",
     val pocketMode: Boolean = false,
     val visualizerStyle: VisualizerStyle = VisualizerStyle.VolumeRing,
     val backgroundSettings: BackgroundSettings = BackgroundSettings(),
     val floatingWindowEnabled: Boolean = false,
     val useSystemTitleBar: Boolean = false,
     val snackbarMessage: String? = null,
-    val showFirstLaunchDialog: Boolean = false
+    val showFirstLaunchDialog: Boolean = false,
+    val showMirrorCdkDialog: Boolean = false
 )
 
 class SettingsViewModel : ViewModel() {
@@ -84,6 +86,7 @@ class SettingsViewModel : ViewModel() {
         val savedFloatingWindowEnabled = settings.getBoolean("floating_window_enabled", false)
         val savedAutoCheckUpdate = settings.getBoolean("auto_check_update", true)
         val savedUseMirrorDownload = settings.getBoolean("use_mirror_download", false)
+        val savedMirrorCdk = settings.getString("mirror_cdk", "")
         val savedUseSystemTitleBar = settings.getBoolean("use_system_title_bar", false)
         
         val hasLaunchedBefore = settings.getBoolean("has_launched_before", false)
@@ -116,6 +119,7 @@ class SettingsViewModel : ViewModel() {
                 floatingWindowEnabled = savedFloatingWindowEnabled,
                 autoCheckUpdate = savedAutoCheckUpdate,
                 useMirrorDownload = savedUseMirrorDownload,
+                mirrorCdk = savedMirrorCdk,
                 useSystemTitleBar = savedUseSystemTitleBar,
                 showFirstLaunchDialog = shouldShowFirstLaunchDialog
             ) 
@@ -230,8 +234,34 @@ class SettingsViewModel : ViewModel() {
     }
 
     fun setUseMirrorDownload(enabled: Boolean) {
-        _uiState.update { it.copy(useMirrorDownload = enabled) }
-        settings.putBoolean("use_mirror_download", enabled)
+        if (enabled) {
+            // Always show dialog when enabling mirror download
+            _uiState.update { it.copy(showMirrorCdkDialog = true) }
+        } else {
+            _uiState.update { it.copy(useMirrorDownload = false) }
+            settings.putBoolean("use_mirror_download", false)
+        }
+    }
+
+    fun setMirrorCdk(cdk: String) {
+        _uiState.update { it.copy(mirrorCdk = cdk) }
+        settings.putString("mirror_cdk", cdk)
+    }
+
+    fun confirmMirrorCdk(cdk: String) {
+        if (cdk.isBlank()) return
+        setMirrorCdk(cdk)
+        _uiState.update {
+            it.copy(
+                useMirrorDownload = true,
+                showMirrorCdkDialog = false
+            )
+        }
+        settings.putBoolean("use_mirror_download", true)
+    }
+
+    fun dismissMirrorCdkDialog() {
+        _uiState.update { it.copy(showMirrorCdkDialog = false) }
     }
 
     fun setBackgroundImage(path: String?) {

@@ -31,6 +31,42 @@ data class GitHubRelease(
     @SerialName("assets") val assets: List<GitHubAsset> = emptyList()
 )
 
+// MirrorChyan API response
+@Serializable
+data class MirrorChyanResponse(
+    @SerialName("code") val code: Int,
+    @SerialName("msg") val msg: String,
+    @SerialName("data") val data: MirrorChyanData? = null
+)
+
+@Serializable
+data class MirrorChyanData(
+    @SerialName("version_name") val versionName: String,
+    @SerialName("version_number") val versionNumber: Int,
+    @SerialName("url") val url: String? = null,
+    @SerialName("filesize") val filesize: Long? = null,
+    @SerialName("sha256") val sha256: String? = null,
+    @SerialName("update_type") val updateType: String? = null, // incremental | full
+    @SerialName("os") val os: String? = null,
+    @SerialName("arch") val arch: String? = null,
+    @SerialName("channel") val channel: String? = null, // stable | beta | alpha
+    @SerialName("release_note") val releaseNote: String,
+    @SerialName("cdk_expired_time") val cdkExpiredTime: Long? = null
+)
+
+// Combined update info
+data class UpdateInfo(
+    val versionName: String,
+    val releaseNote: String,
+    val mirrorUrl: String? = null, // MirrorChyan download URL
+    val mirrorFilesize: Long? = null,
+    val mirrorSha256: String? = null,
+    val mirrorUpdateType: String? = null,
+    val cdkExpiredTime: Long? = null,
+    val githubRelease: GitHubRelease? = null,
+    val isLatest: Boolean = false
+)
+
 data class DownloadProgress(
     val downloadedBytes: Long = 0,
     val totalBytes: Long = 0,
@@ -38,6 +74,14 @@ data class DownloadProgress(
 )
 
 class UpdateChecker {
+    companion object {
+        const val MIRROR_RID = "MicYou"
+        const val MIRROR_API_BASE = "https://mirrorchyan.com/api"
+        private const val GITHUB_RELEASE_API = "https://api.github.com/repos/LanRhyme/MicYou/releases/latest"
+        private const val GITHUB_RELEASE_WEB = "https://github.com/LanRhyme/MicYou/releases/latest"
+        private const val DEFAULT_USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
+    }
+
     private val client = HttpClient {
         install(ContentNegotiation) {
             json(Json {
@@ -52,56 +96,115 @@ class UpdateChecker {
     private val _downloadProgress = MutableStateFlow(DownloadProgress())
     val downloadProgress: StateFlow<DownloadProgress> = _downloadProgress.asStateFlow()
 
-    companion object {
-        private const val MIRROR_BASE_URL = "https://atomgit.com/gh_mirrors/mi/MicYou/releases/download/"
-    }
-
-    fun getMirrorDownloadUrl(githubUrl: String): String {
-        // Convert GitHub URL to mirror URL
-        // GitHub: https://github.com/LanRhyme/MicYou/releases/download/{tag}/{filename}
-        // Mirror: https://atomgit.com/gh_mirrors/mi/MicYou/releases/download/{tag}/{filename}
-        val releasesPath = githubUrl.substringAfter("releases/download/")
-        return "$MIRROR_BASE_URL$releasesPath"
-    }
-
-    suspend fun checkUpdate(): Result<GitHubRelease?> {
+    suspend fun checkUpdate(cdk: String? = null): Result<UpdateInfo?> {
         val currentVersion = getAppVersion()
         if (currentVersion == "dev") return Result.success(null)
 
+        val mirrorInfo = cdk
+            ?.trim()
+            ?.takeIf { it.isNotBlank() }
+            ?.let { mirrorCdk -> checkUpdateViaMirror(currentVersion, mirrorCdk).getOrNull() }
+
+        if (mirrorInfo?.mirrorUrl != null) {
+            return Result.success(mirrorInfo)
+        }
+
+        return checkUpdateViaGitHub(currentVersion)
+    }
+
+    private suspend fun checkUpdateViaMirror(currentVersion: String, cdk: String): Result<UpdateInfo?> {
         return try {
-            val apiResponse = client.get("https://api.github.com/repos/LanRhyme/MicYou/releases/latest") {
-                header(HttpHeaders.UserAgent, "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36")
+            val os = getMirrorOs()
+            val url = "$MIRROR_API_BASE/resources/$MIRROR_RID/latest?os=$os&cdk=$cdk${if(os != "android") "&arch=${getMirrorArch()}" else ""}"
+
+            val response = client.get(url) {
+                header(HttpHeaders.UserAgent, "MicYou_${getPlatformName()}")
+            }
+
+            if (!response.status.isSuccess()) return Result.failure(Exception("HTTP Error: ${response.status.value}"))
+
+            val mirrorResponse: MirrorChyanResponse = response.body()
+            val data = mirrorResponse.data
+
+            if (mirrorResponse.code != 0 || data == null) {
+                Logger.w("UpdateChecker", "MirrorChyan error: code=${mirrorResponse.code}, msg=${mirrorResponse.msg}")
+                return Result.failure(Exception(mirrorResponse.msg))
+            }
+
+            val isLatest = !isNewerVersion(currentVersion, data.versionName.removePrefix("v"))
+            Result.success(data.toUpdateInfo(isLatest))
+        } catch (e: Exception) {
+            Logger.e("UpdateChecker", "MirrorChyan check failed", e)
+            Result.failure(e)
+        }
+    }
+
+    private suspend fun checkUpdateViaGitHub(currentVersion: String): Result<UpdateInfo?> {
+        return try {
+            val apiResponse = client.get(GITHUB_RELEASE_API) {
+                header(HttpHeaders.UserAgent, DEFAULT_USER_AGENT)
                 header(HttpHeaders.Accept, "application/vnd.github+json")
             }
-            
+
             if (apiResponse.status.isSuccess()) {
                 val latestRelease: GitHubRelease = apiResponse.body()
                 val latestVersion = latestRelease.tagName.removePrefix("v")
                 if (isNewerVersion(currentVersion, latestVersion)) {
-                    return Result.success(latestRelease)
+                    return Result.success(latestRelease.toUpdateInfo())
                 }
                 return Result.success(null)
             }
-            
+
             if (apiResponse.status == HttpStatusCode.Forbidden || apiResponse.status == HttpStatusCode.TooManyRequests) {
                 Logger.w("UpdateChecker", "GitHub API rate limited, trying website fallback...")
-                return checkUpdateViaWebsite(currentVersion, "New version released")
+                return checkUpdateViaWebsiteFallback(currentVersion)
             }
 
             Result.failure(Exception("HTTP Error: ${apiResponse.status.value}"))
         } catch (e: Exception) {
             Logger.e("UpdateChecker", "API check failed, trying fallback...", e)
-            return checkUpdateViaWebsite(currentVersion, "New version released")
+            return checkUpdateViaWebsiteFallback(currentVersion)
         }
     }
 
-    suspend fun downloadUpdate(downloadUrl: String, targetPath: String, useMirror: Boolean = false): Result<String> {
-        _downloadProgress.value = DownloadProgress()
-        val actualUrl = if (useMirror) getMirrorDownloadUrl(downloadUrl) else downloadUrl
-        Logger.i("UpdateChecker", "Downloading from: $actualUrl (mirror: $useMirror)")
+    private suspend fun checkUpdateViaWebsiteFallback(currentVersion: String): Result<UpdateInfo?> {
         return try {
-            downloadClient.prepareGet(actualUrl) {
-                header(HttpHeaders.UserAgent, "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36")
+            val response = client.get(GITHUB_RELEASE_WEB) {
+                header(HttpHeaders.UserAgent, DEFAULT_USER_AGENT)
+            }
+
+            val finalUrl = response.call.request.url.toString()
+
+            if (finalUrl.contains("/tag/")) {
+                val tag = finalUrl.substringAfterLast("/")
+                val latestVersion = tag.removePrefix("v")
+
+                if (isNewerVersion(currentVersion, latestVersion)) {
+                    return Result.success(UpdateInfo(
+                        versionName = tag,
+                        releaseNote = "New version released",
+                        githubRelease = GitHubRelease(
+                            tagName = tag,
+                            htmlUrl = finalUrl,
+                            body = "New version released"
+                        ),
+                        isLatest = false
+                    ))
+                }
+            }
+            Result.success(null)
+        } catch (e: Exception) {
+            Logger.e("UpdateChecker", "Website fallback also failed", e)
+            Result.failure(e)
+        }
+    }
+
+    suspend fun downloadUpdate(downloadUrl: String, targetPath: String): Result<String> {
+        _downloadProgress.value = DownloadProgress()
+        Logger.i("UpdateChecker", "Downloading from: $downloadUrl")
+        return try {
+            downloadClient.prepareGet(downloadUrl) {
+                header(HttpHeaders.UserAgent, DEFAULT_USER_AGENT)
             }.execute { response ->
                 val totalBytes = response.contentLength() ?: 0L
                 var downloadedBytes = 0L
@@ -133,47 +236,35 @@ class UpdateChecker {
         return findPlatformAsset(release.assets)
     }
 
-    private suspend fun checkUpdateViaWebsite(currentVersion: String, releaseBody: String): Result<GitHubRelease?> {
-        return try {
-            val response = client.get("https://github.com/LanRhyme/MicYou/releases/latest") {
-                header(HttpHeaders.UserAgent, "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36")
-            }
-            
-            val finalUrl = response.call.request.url.toString()
-            
-            if (finalUrl.contains("/tag/")) {
-                val tag = finalUrl.substringAfterLast("/")
-                val latestVersion = tag.removePrefix("v")
-                
-                if (isNewerVersion(currentVersion, latestVersion)) {
-                    return Result.success(GitHubRelease(
-                        tagName = tag,
-                        htmlUrl = finalUrl,
-                        body = releaseBody
-                    ))
-                }
-            }
-            Result.success(null)
-        } catch (e: Exception) {
-            Logger.e("UpdateChecker", "Website fallback also failed", e)
-            Result.failure(e)
-        }
+    private fun MirrorChyanData.toUpdateInfo(isLatest: Boolean): UpdateInfo {
+        return UpdateInfo(
+            versionName = versionName,
+            releaseNote = releaseNote,
+            mirrorUrl = if (isLatest) null else url,
+            mirrorFilesize = if (isLatest) null else filesize,
+            mirrorSha256 = if (isLatest) null else sha256,
+            mirrorUpdateType = if (isLatest) null else updateType,
+            cdkExpiredTime = cdkExpiredTime,
+            isLatest = isLatest
+        )
+    }
+
+    private fun GitHubRelease.toUpdateInfo(): UpdateInfo {
+        return UpdateInfo(
+            versionName = tagName,
+            releaseNote = body,
+            githubRelease = this,
+            isLatest = false
+        )
     }
 
     private fun isNewerVersion(current: String, latest: String): Boolean {
-        fun parseParts(v: String) = v.split(".")
-            .map { it.substringBefore("-") }
-            .mapNotNull { it.toIntOrNull() }
-
-        val currentParts = parseParts(current.removePrefix("v"))
-        val latestParts = parseParts(latest.removePrefix("v"))
-
-        val size = maxOf(currentParts.size, latestParts.size)
-        for (i in 0 until size) {
-            val curr = currentParts.getOrNull(i) ?: 0
-            val late = latestParts.getOrNull(i) ?: 0
-            if (late > curr) return true
-            if (late < curr) return false
+        val c = current.removePrefix("v").split(".").map { it.substringBefore("-").toIntOrNull() ?: 0 }
+        val l = latest.removePrefix("v").split(".").map { it.substringBefore("-").toIntOrNull() ?: 0 }
+        for (i in 0 until maxOf(c.size, l.size)) {
+            val curr = c.getOrElse(i) { 0 }
+            val late = l.getOrElse(i) { 0 }
+            if (late != curr) return late > curr
         }
         return false
     }
@@ -190,3 +281,15 @@ expect fun getUpdateDownloadPath(fileName: String): String
 
 // Platform-specific: install the downloaded update file
 expect fun installUpdate(filePath: String)
+
+// Platform-specific: get OS string for MirrorChyan API (windows/linux/darwin/android)
+expect fun getMirrorOs(): String
+
+// Platform-specific: get architecture string for MirrorChyan API (386/amd64/arm/arm64)
+expect fun getMirrorArch(): String
+
+// Platform-specific: get platform name for user_agent
+expect fun getPlatformName(): String
+
+// Platform-specific: Check if the app is a portable version
+expect fun isPortableApp(): Boolean

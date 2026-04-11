@@ -89,6 +89,8 @@ data class AppUiState(
     val rememberCloseAction: Boolean = false,
     val autoCheckUpdate: Boolean = true,
     val useMirrorDownload: Boolean = false,
+    val mirrorCdk: String = "",
+    val showMirrorCdkDialog: Boolean = false,
     val pocketMode: Boolean = true,
     val visualizerStyle: VisualizerStyle = VisualizerStyle.VolumeRing,
     val backgroundSettings: BackgroundSettings = BackgroundSettings(),
@@ -104,13 +106,13 @@ data class AppUiState(
     val missingPlugins: List<MissingPluginInfo> = emptyList(),
     
     // Update State
-    val newVersionAvailable: GitHubRelease? = null,
+    val updateInfo: UpdateInfo? = null,
     val updateDownloadState: UpdateDownloadState = UpdateDownloadState.Idle,
     val updateDownloadProgress: Float = 0f,
     val updateDownloadedBytes: Long = 0,
     val updateTotalBytes: Long = 0,
     val updateErrorMessage: String? = null,
-    
+
     // UI State
     val installMessage: String? = null,
     val snackbarMessage: String? = null
@@ -257,6 +259,8 @@ class MainViewModel : ViewModel() {
                     rememberCloseAction = settingsState.rememberCloseAction,
                     autoCheckUpdate = settingsState.autoCheckUpdate,
                     useMirrorDownload = settingsState.useMirrorDownload,
+                    mirrorCdk = settingsState.mirrorCdk,
+                    showMirrorCdkDialog = settingsState.showMirrorCdkDialog,
                     pocketMode = settingsState.pocketMode,
                     visualizerStyle = settingsState.visualizerStyle,
                     backgroundSettings = settingsState.backgroundSettings,
@@ -266,7 +270,7 @@ class MainViewModel : ViewModel() {
                     plugins = pluginState.plugins,
                     showPluginSyncWarning = pluginState.showPluginSyncWarning,
                     missingPlugins = pluginState.missingPlugins,
-                    newVersionAvailable = updateState.newVersionAvailable,
+                    updateInfo = updateState.updateInfo,
                     updateDownloadState = updateState.updateDownloadState,
                     updateDownloadProgress = updateState.updateDownloadProgress,
                     updateDownloadedBytes = updateState.updateDownloadedBytes,
@@ -344,6 +348,9 @@ class MainViewModel : ViewModel() {
     fun setUseSystemTitleBar(enabled: Boolean) = settingsViewModel.setUseSystemTitleBar(enabled)
     fun setAutoCheckUpdate(enabled: Boolean) = settingsViewModel.setAutoCheckUpdate(enabled)
     fun setUseMirrorDownload(enabled: Boolean) = settingsViewModel.setUseMirrorDownload(enabled)
+    fun setMirrorCdk(cdk: String) = settingsViewModel.setMirrorCdk(cdk)
+    fun confirmMirrorCdk(cdk: String) = settingsViewModel.confirmMirrorCdk(cdk)
+    fun dismissMirrorCdkDialog() = settingsViewModel.dismissMirrorCdkDialog()
     fun setBackgroundImage(path: String?) = settingsViewModel.setBackgroundImage(path)
     fun setBackgroundBrightness(brightness: Float) = settingsViewModel.setBackgroundBrightness(brightness)
     fun setBackgroundBlur(blurRadius: Float) = settingsViewModel.setBackgroundBlur(blurRadius)
@@ -404,11 +411,12 @@ class MainViewModel : ViewModel() {
         viewModelScope.launch {
             val strings = getStrings(_uiState.value.language)
             _uiState.update { it.copy(snackbarMessage = strings.checkingUpdate) }
-            updateViewModel.checkUpdateManual(_uiState.value.language)
+            updateViewModel.checkUpdateManual()
         }
     }
-    fun downloadAndInstallUpdate() = updateViewModel.downloadAndInstallUpdate()
+    fun downloadAndInstallUpdate(useMirror: Boolean = _uiState.value.useMirrorDownload) = updateViewModel.downloadAndInstallUpdate(useMirror)
     fun dismissUpdateDialog() = updateViewModel.dismissUpdateDialog()
+    fun openGitHubRelease() = updateViewModel.openGitHubRelease()
     
     fun clearInstallMessage() {
         _uiState.update { it.copy(installMessage = null) }

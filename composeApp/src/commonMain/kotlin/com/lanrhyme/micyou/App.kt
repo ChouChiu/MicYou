@@ -36,7 +36,7 @@ fun App(
     val seedColorObj = androidx.compose.ui.graphics.Color(uiState.seedColor.toInt())
     val strings = getStrings(uiState.language)
 
-    val newVersionAvailable = uiState.newVersionAvailable
+    val updateInfo = uiState.updateInfo
     val pocketMode = uiState.pocketMode
     val useSystemTitleBar = uiState.useSystemTitleBar
     val showFirstLaunchDialog = uiState.showFirstLaunchDialog
@@ -83,12 +83,13 @@ fun App(
             }
 
             // Update Dialog
-            if (newVersionAvailable != null) {
+            if (updateInfo != null) {
                 val downloadState = uiState.updateDownloadState
                 val downloadProgress = uiState.updateDownloadProgress
                 val downloadedBytes = uiState.updateDownloadedBytes
                 val totalBytes = uiState.updateTotalBytes
                 val updateError = uiState.updateErrorMessage
+                val useMirrorDownload = uiState.useMirrorDownload
                 val isDownloading = downloadState == UpdateDownloadState.Downloading
                 val isInstalling = downloadState == UpdateDownloadState.Installing
                 val isFailed = downloadState == UpdateDownloadState.Failed
@@ -119,15 +120,30 @@ fun App(
                                     fontSize = 12.sp
                                 )
                             } else {
-                                Text(strings.updateMessage.replace("%s", newVersionAvailable.tagName))
+                                Text(strings.updateMessage.replace("%s", updateInfo.versionName))
+
+                                // Mirror source follows settings automatically. Keep only the expiration hint.
+                                if (useMirrorDownload && updateInfo.mirrorUrl != null) {
+                                    updateInfo.cdkExpiredTime?.let { expiredTime ->
+                                        val now = System.currentTimeMillis() / 1000
+                                        val daysLeft = (expiredTime - now) / (24 * 60 * 60)
+                                        if (daysLeft in 1..7) {
+                                            Spacer(Modifier.height(8.dp))
+                                            Text(
+                                                strings.mirrorCdkExpiredWarning,
+                                                color = MaterialTheme.colorScheme.error,
+                                                fontSize = 12.sp
+                                            )
+                                        }
+                                    }
+                                }
                             }
                         }
                     },
                     confirmButton = {
                         if (isFailed) {
                             TextButton(onClick = {
-                                openUrl(newVersionAvailable.htmlUrl)
-                                finalViewModel.dismissUpdateDialog()
+                                finalViewModel.openGitHubRelease()
                             }) {
                                 Text(strings.updateGoToGitHub)
                             }

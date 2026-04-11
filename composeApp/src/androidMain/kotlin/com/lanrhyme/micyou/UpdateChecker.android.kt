@@ -1,6 +1,7 @@
 package com.lanrhyme.micyou
 
 import android.content.Intent
+import android.os.Build
 import android.os.Environment
 import androidx.core.content.FileProvider
 import java.io.File
@@ -56,3 +57,23 @@ actual fun installUpdate(filePath: String) {
         Logger.e("UpdateInstaller", "Failed to install APK", e)
     }
 }
+
+actual fun getMirrorOs(): String {
+    return "android"
+}
+
+actual fun getMirrorArch(): String {
+    return when {
+        Build.SUPPORTED_ABIS.any { it.contains("arm64") } -> "arm64"
+        Build.SUPPORTED_ABIS.any { it.contains("arm") } -> "arm"
+        Build.SUPPORTED_ABIS.any { it.contains("x86_64") || it.contains("x64") } -> "amd64"
+        Build.SUPPORTED_ABIS.any { it.contains("x86") || it.contains("i386") } -> "386"
+        else -> "arm64"
+    }
+}
+
+actual fun getPlatformName(): String {
+    return "Android"
+}
+
+actual fun isPortableApp(): Boolean = false

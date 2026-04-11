@@ -2,14 +2,11 @@ package com.lanrhyme.micyou
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 
 data class UpdateUiState(
-    val newVersionAvailable: GitHubRelease? = null,
+    val updateInfo: UpdateInfo? = null,
     val updateDownloadState: UpdateDownloadState = UpdateDownloadState.Idle,
     val updateDownloadProgress: Float = 0f,
     val updateDownloadedBytes: Long = 0,
@@ -24,98 +21,53 @@ class UpdateViewModel : ViewModel() {
     private val settings = SettingsFactory.getSettings()
 
     init {
-        // Collect download progress from UpdateChecker
         viewModelScope.launch {
-            updateChecker.downloadProgress.collect { progress ->
-                _uiState.update {
-                    it.copy(
-                        updateDownloadProgress = progress.progress,
-                        updateDownloadedBytes = progress.downloadedBytes,
-                        updateTotalBytes = progress.totalBytes
-                    )
-                }
+            updateChecker.downloadProgress.collect { p ->
+                _uiState.update { it.copy(updateDownloadProgress = p.progress, updateDownloadedBytes = p.downloadedBytes, updateTotalBytes = p.totalBytes) }
             }
         }
     }
 
-    fun checkUpdateManual(language: AppLanguage) {
-        viewModelScope.launch {
-            val strings = getStrings(language)
-            // Note: snackbar message should be handled by the calling ViewModel
-            val result = updateChecker.checkUpdate()
-            
-            result.onSuccess { release ->
-                if (release != null) {
-                    _uiState.update { it.copy(newVersionAvailable = release) }
-                }
-            }
-        }
-    }
+    fun checkUpdateManual() { viewModelScope.launch { checkUpdateInternal() } }
+    fun checkUpdateAuto() { if (settings.getBoolean("auto_check_update", true)) checkUpdateManual() }
 
-    fun checkUpdateAuto() {
-        val autoCheckUpdate = settings.getBoolean("auto_check_update", true)
-        if (autoCheckUpdate) {
-            viewModelScope.launch {
-                val result = updateChecker.checkUpdate()
-                result.onSuccess { release ->
-                    if (release != null) {
-                        _uiState.update { it.copy(newVersionAvailable = release) }
-                    }
-                }
-            }
-        }
-    }
+    fun downloadAndInstallUpdate(useMirror: Boolean) {
+        val info = _uiState.value.updateInfo ?: return
+        if (isPortableApp()) return openGitHubRelease()
 
-    fun downloadAndInstallUpdate() {
-        val release = _uiState.value.newVersionAvailable ?: return
-        val asset = updateChecker.findAssetForPlatform(release)
-        if (asset == null) {
-            // No matching asset - fall back to opening the release page
-            openUrl(release.htmlUrl)
-            dismissUpdateDialog()
-            return
+        val targetUrl = if (useMirror) info.mirrorUrl else info.githubRelease?.let { updateChecker.findAssetForPlatform(it)?.browserDownloadUrl }
+        if (targetUrl == null) {
+            info.githubRelease?.htmlUrl?.let { openUrl(it) }
+            return dismissUpdateDialog()
         }
+
+        val qName = Regex("(?i)[?&](?:filename|file|name)=([^&]+)").find(targetUrl)?.groupValues?.get(1)?.substringAfterLast("/")
+        val pName = targetUrl.substringBefore("?").substringAfterLast("/").takeIf { it.contains(".") }
+        val ext = pName?.substringAfterLast(".", "") ?: qName?.substringAfterLast(".", "") ?: info.githubRelease?.let { updateChecker.findAssetForPlatform(it)?.name }?.substringAfterLast(".", "") ?: when(getMirrorOs()) { "windows" -> "exe"; "darwin" -> "dmg"; else -> "deb" }
+
+        val name = pName ?: qName?.takeIf { it.contains(".") } ?: "MicYou-${info.versionName}-${getMirrorOs()}-${getMirrorArch()}.${ext.takeIf { it.isNotBlank() } ?: "exe"}"
 
         _uiState.update { it.copy(updateDownloadState = UpdateDownloadState.Downloading, updateErrorMessage = null) }
-
         viewModelScope.launch {
-            val targetPath = getUpdateDownloadPath(asset.name)
-            val useMirror = settings.getBoolean("use_mirror_download", false)
-            val result = updateChecker.downloadUpdate(asset.browserDownloadUrl, targetPath, useMirror)
-
-            result.onSuccess { filePath ->
-                _uiState.update { it.copy(updateDownloadState = UpdateDownloadState.Downloaded) }
-                _uiState.update { it.copy(updateDownloadState = UpdateDownloadState.Installing) }
-                try {
-                    installUpdate(filePath)
-                } catch (e: Exception) {
-                    Logger.e("UpdateViewModel", "Install failed", e)
-                    _uiState.update {
-                        it.copy(
-                            updateDownloadState = UpdateDownloadState.Failed,
-                            updateErrorMessage = e.message
-                        )
-                    }
-                }
-            }.onFailure { e ->
-                _uiState.update {
-                    it.copy(
-                        updateDownloadState = UpdateDownloadState.Failed,
-                        updateErrorMessage = e.message
-                    )
-                }
-            }
+            updateChecker.downloadUpdate(targetUrl, getUpdateDownloadPath(name)).onSuccess {
+                _uiState.update { s -> s.copy(updateDownloadState = UpdateDownloadState.Installing) }
+                runCatching { installUpdate(it) }.onFailure { e -> failDownload(e.message) }
+            }.onFailure { failDownload(it.message) }
         }
     }
 
-    fun dismissUpdateDialog() {
-        _uiState.update {
-            it.copy(
-                newVersionAvailable = null,
-                updateDownloadState = UpdateDownloadState.Idle,
-                updateDownloadProgress = 0f,
-                updateErrorMessage = null
-            )
+    private suspend fun checkUpdateInternal() {
+        updateChecker.checkUpdate(settings.getString("mirror_cdk", "")).onSuccess { info ->
+            if (info?.isLatest == false) _uiState.update { it.copy(updateInfo = info) }
         }
+    }
+
+    private fun failDownload(error: String?) = _uiState.update { it.copy(updateDownloadState = UpdateDownloadState.Failed, updateErrorMessage = error) }
+    
+    fun dismissUpdateDialog() = _uiState.update { UpdateUiState() }
+
+    fun openGitHubRelease() {
+        openUrl(_uiState.value.updateInfo?.githubRelease?.htmlUrl ?: "https://github.com/LanRhyme/MicYou/releases/latest")
+        dismissUpdateDialog()
     }
 }

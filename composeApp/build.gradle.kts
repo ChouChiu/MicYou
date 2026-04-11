@@ -174,7 +174,7 @@ compose.desktop {
             description = "MicYou Application"
             vendor = "LanRhyme"
             copyright = "Copyright (c) 2026 LanRhyme"
-            modules("java.net.http")
+            modules("java.net.http", "jdk.accessibility", "jdk.unsupported.desktop")
             
             windows {
                 val generatedIcon = layout.buildDirectory.file("generated/icons/icon256.ico").get().asFile
