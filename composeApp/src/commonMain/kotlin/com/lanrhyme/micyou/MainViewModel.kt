@@ -140,6 +140,9 @@ class MainViewModel : ViewModel() {
     val audioLevels = audioStreamViewModel.audioLevels
     
     private val settings = SettingsFactory.getSettings()
+    
+    // Track if auto-start has been checked to avoid multiple triggers
+    private var autoStartChecked = false
 
     init {
         // Initialize Plugin ViewModel with shared AudioEngine
@@ -273,6 +276,15 @@ class MainViewModel : ViewModel() {
                 )
             }.collect { combinedState ->
                 _uiState.value = combinedState
+                
+                // Auto-start streaming on Desktop if enabled (only check once)
+                if (!autoStartChecked && getPlatform().type == PlatformType.Desktop) {
+                    autoStartChecked = true
+                    if (combinedState.autoStart && combinedState.streamState == StreamState.Idle) {
+                        Logger.i("MainViewModel", "Auto-starting stream due to autoStart setting")
+                        audioStreamViewModel.startStream()
+                    }
+                }
             }
         }
     }
