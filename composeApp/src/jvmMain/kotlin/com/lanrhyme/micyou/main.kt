@@ -92,7 +92,7 @@ fun main() {
         // Helper function for app exit with timeout protection
         val exitApp: () -> Unit = {
             runBlocking {
-                withTimeoutOrNull(3000L) {
+                withTimeoutOrNull(Constants.EXIT_CLEANUP_TIMEOUT_MS) {
                     VirtualAudioDeviceManager.setSystemDefaultMicrophone(toCable = false)
                 } ?: Logger.w("Main", "Timeout while restoring system default microphone")
             }

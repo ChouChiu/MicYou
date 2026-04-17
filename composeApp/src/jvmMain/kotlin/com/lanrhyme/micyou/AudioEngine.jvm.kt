@@ -37,7 +37,7 @@ actual class AudioEngine actual constructor() {
     private val audioPipeline = AudioProcessorPipeline()
     
     private val audioPacketChannel = Channel<AudioPacketMessage>(
-        capacity = 32,
+        capacity = Constants.AUDIO_PACKET_CHANNEL_CAPACITY,
         onBufferOverflow = BufferOverflow.DROP_OLDEST
     )
     
@@ -226,9 +226,9 @@ actual class AudioEngine actual constructor() {
              // 使用协程异步停止，避免阻塞调用线程
              scope.launch {
                  try {
-                     withTimeoutOrNull(5000L) {
+                     withTimeoutOrNull(Constants.SERVER_STOP_TIMEOUT_MS) {
                          networkServer.stop()
-                     } ?: Logger.w("AudioEngine", "NetworkServer stop timeout after 5s")
+                     } ?: Logger.w("AudioEngine", "NetworkServer stop timeout after ${Constants.SERVER_STOP_TIMEOUT_MS}ms")
                  } catch (e: Exception) {
                      Logger.e("AudioEngine", "Error in async stop: ${e.message}", e)
                  }
@@ -243,6 +243,11 @@ actual class AudioEngine actual constructor() {
          }
     }
     
+    /**
+     * 计算 16-bit PCM 音频数据的 RMS 电平值。
+     * 注意：此方法只处理 16-bit 格式，因为 AudioProcessorPipeline 已将所有格式转换为 16-bit。
+     * Android 端有独立的 calculateRMS 实现支持多种格式。
+     */
     private fun calculateRMS(buffer: ByteArray): Float {
         var sum = 0.0
         var count = 0

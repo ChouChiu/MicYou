@@ -233,6 +233,7 @@ class NoiseReducer(
             ulunasProcessorRight?.destroy()
             ulunasProcessorRight = null
         } catch (e: Exception) {
+            Logger.d("NoiseReducer", "Error during release: ${e.message}")
         }
     }
 }

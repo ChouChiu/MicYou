@@ -652,6 +652,12 @@ actual class AudioEngine actual constructor() {
         return false
     }
     
+    /**
+     * 计算音频数据的 RMS 电平值。
+     * 支持多种格式：PCM_FLOAT, PCM_8BIT, PCM_16BIT。
+     * 注意：JVM 端有独立的 calculateRMS 实现，只处理 16-bit 格式，
+     * 因为 AudioProcessorPipeline 已将所有格式统一转换。
+     */
     private fun calculateRMS(buffer: ByteArray, format: com.lanrhyme.micyou.AudioFormat): Float {
         var sum = 0.0
         var sampleCount = 0
