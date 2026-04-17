@@ -223,8 +223,15 @@ actual class AudioEngine actual constructor() {
          try {
              job?.cancel()
              job = null
-             runBlocking {
-                 networkServer.stop()
+             // 使用协程异步停止，避免阻塞调用线程
+             scope.launch {
+                 try {
+                     withTimeoutOrNull(5000L) {
+                         networkServer.stop()
+                     } ?: Logger.w("AudioEngine", "NetworkServer stop timeout after 5s")
+                 } catch (e: Exception) {
+                     Logger.e("AudioEngine", "Error in async stop: ${e.message}", e)
+                 }
              }
              _lastError.value = null
              _state.value = StreamState.Idle

@@ -150,11 +150,22 @@ class ConnectionHandler(
 
             val length = input.readInt()
 
-            if (length > 2 * 1024 * 1024) { // 2MB limit
+            // 严格的包大小验证，防止恶意数据包攻击
+            val MAX_PACKET_SIZE = 2 * 1024 * 1024 // 2MB
+            if (length > MAX_PACKET_SIZE) {
+                Logger.w("ConnectionHandler", "Packet size too large: $length bytes (max: $MAX_PACKET_SIZE), skipping")
                 continue
             }
 
-            if (length <= 0) continue
+            if (length < 0) {
+                Logger.e("ConnectionHandler", "Invalid negative packet length: $length, possible malicious packet")
+                throw IOException("Invalid packet length: $length")
+            }
+
+            if (length == 0) {
+                Logger.d("ConnectionHandler", "Received empty packet, skipping")
+                continue
+            }
 
             val packetBytes = ByteArray(length)
             input.readFully(packetBytes)

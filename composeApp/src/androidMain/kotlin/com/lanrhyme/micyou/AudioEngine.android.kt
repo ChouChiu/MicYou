@@ -55,6 +55,8 @@ fun OutputStream.toByteWriteChannel(context: CoroutineContext = Dispatchers.IO):
 
 actual class AudioEngine actual constructor() {
     init {
+        // 注意：此单例模式用于通知栏快捷操作，不支持多实例场景
+        // 在测试环境中需要注意清理或使用 ViewModel 管理实例
         activeEngine = this
     }
 
@@ -69,6 +71,14 @@ actual class AudioEngine actual constructor() {
         fun isStreaming(): Boolean {
             val state = activeEngine?.currentStreamState()
             return state == StreamState.Streaming || state == StreamState.Connecting
+        }
+    }
+
+    // 用于测试或清理场景，显式移除 active 引用
+    // 定义为实例方法，可直接使用 this 而无需传参
+    private fun clearActiveEngine() {
+        if (activeEngine == this) {
+            activeEngine = null
         }
     }
     private val _state = MutableStateFlow(StreamState.Idle)
@@ -243,22 +253,35 @@ actual class AudioEngine actual constructor() {
                         
                         if (mode == ConnectionMode.Bluetooth) {
                             Logger.i("AudioEngine", "Connecting via Bluetooth to $ip")
+
+                            // 显式检查蓝牙权限，提供友好的错误提示
+                            val context = ContextHelper.getContext()
+                            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
+                                val hasBluetoothConnect = context?.let {
+                                    androidx.core.content.ContextCompat.checkSelfPermission(
+                                        it, android.Manifest.permission.BLUETOOTH_CONNECT
+                                    ) == android.content.pm.PackageManager.PERMISSION_GRANTED
+                                } ?: false
+                                if (!hasBluetoothConnect) {
+                                    throw SecurityException("缺少蓝牙连接权限 (BLUETOOTH_CONNECT)，请在应用设置中授予蓝牙权限")
+                                }
+                            }
+
                             val adapter = android.bluetooth.BluetoothAdapter.getDefaultAdapter()
                                 ?: throw UnsupportedOperationException("设备不支持蓝牙")
-                            
+
                             if (!android.bluetooth.BluetoothAdapter.checkBluetoothAddress(ip)) {
                                 throw IllegalArgumentException("无效的蓝牙 MAC 地址: $ip")
                             }
-                            
+
                             val device = adapter.getRemoteDevice(ip)
                             // SPP UUID
                             val uuid = java.util.UUID.fromString("00001101-0000-1000-8000-00805F9B34FB")
-                            
-                            // Note: Missing explicit permission check here, relying on SecurityException if missing
+
                             val btSocket = device.createRfcommSocketToServiceRecord(uuid)
                             btSocket.connect()
                             Logger.i("AudioEngine", "Bluetooth connected to $ip")
-                            
+
                             input = btSocket.inputStream.toByteReadChannel()
                             output = btSocket.outputStream.toByteWriteChannel()
                             closeConnection = { btSocket.close() }
@@ -501,6 +524,9 @@ actual class AudioEngine actual constructor() {
         job = null
         _state.value = StreamState.Idle
         isRunning = false
+
+        // 清理 active 引用（如果当前实例是 activeEngine）
+        clearActiveEngine()
 
         val context = ContextHelper.getContext()
         if (context != null) {
