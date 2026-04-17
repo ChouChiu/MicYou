@@ -256,12 +256,11 @@ actual class AudioEngine actual constructor() {
 
                             // 显式检查蓝牙权限，提供友好的错误提示
                             val context = ContextHelper.getContext()
+                                ?: throw IllegalStateException("应用上下文不可用，无法检查蓝牙权限")
                             if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
-                                val hasBluetoothConnect = context?.let {
-                                    androidx.core.content.ContextCompat.checkSelfPermission(
-                                        it, android.Manifest.permission.BLUETOOTH_CONNECT
-                                    ) == android.content.pm.PackageManager.PERMISSION_GRANTED
-                                } ?: false
+                                val hasBluetoothConnect = androidx.core.content.ContextCompat.checkSelfPermission(
+                                    context, android.Manifest.permission.BLUETOOTH_CONNECT
+                                ) == android.content.pm.PackageManager.PERMISSION_GRANTED
                                 if (!hasBluetoothConnect) {
                                     throw SecurityException("缺少蓝牙连接权限 (BLUETOOTH_CONNECT)，请在应用设置中授予蓝牙权限")
                                 }

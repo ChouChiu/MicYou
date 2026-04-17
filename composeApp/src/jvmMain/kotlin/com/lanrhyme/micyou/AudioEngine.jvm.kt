@@ -31,6 +31,7 @@ actual class AudioEngine actual constructor() {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private var job: Job? = null
     private var audioProcessingJob: Job? = null
+    private var stopJob: Job? = null // 用于跟踪停止操作，防止竞态条件
     private val startStopMutex = Mutex()
     
     private val audioOutputManager = AudioOutputManager()
@@ -175,20 +176,21 @@ actual class AudioEngine actual constructor() {
             }
         }
         
-        val jobToJoin = startStopMutex.withLock {
+        startStopMutex.withLock {
+            // 等待任何正在进行的停止操作完成，防止竞态条件
+            stopJob?.join()
+            stopJob = null
+
             val currentJob = job
             if (currentJob != null && !currentJob.isCompleted) {
                 Logger.w("AudioEngine", "AudioEngine 已在运行，忽略启动请求")
-                null
             } else {
                 // 直接调用 networkServer.start()，不 launch 新协程
                 // NetworkServer 内部会管理自己的协程
                 networkServer.start(port, mode)
                 Logger.i("AudioEngine", "NetworkServer started successfully")
-                null  // 不返回 job，因为我们直接等待了
             }
         }
-        // jobToJoin 为 null，因为我们已经等待完成
     }
 
     private suspend fun processReceivedPacket(audioPacket: AudioPacketMessage) {
@@ -224,7 +226,8 @@ actual class AudioEngine actual constructor() {
              job?.cancel()
              job = null
              // 使用协程异步停止，避免阻塞调用线程
-             scope.launch {
+             // 保存停止 Job 以便 start() 可以等待其完成，防止竞态条件
+             stopJob = scope.launch {
                  try {
                      withTimeoutOrNull(Constants.SERVER_STOP_TIMEOUT_MS) {
                          networkServer.stop()

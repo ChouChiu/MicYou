@@ -150,10 +150,10 @@ class ConnectionHandler(
 
             val length = input.readInt()
 
-            // 严格的包大小验证，防止恶意数据包攻击
+            // 严格的包大小验证，防止恶意数据包攻击和 DoS
             if (length > Constants.MAX_PACKET_SIZE) {
-                Logger.w("ConnectionHandler", "Packet size too large: $length bytes (max: ${Constants.MAX_PACKET_SIZE}), skipping")
-                continue
+                Logger.e("ConnectionHandler", "Packet size too large: $length bytes (max: ${Constants.MAX_PACKET_SIZE}), closing connection")
+                throw IOException("Packet size too large: $length bytes")
             }
 
             if (length < 0) {
