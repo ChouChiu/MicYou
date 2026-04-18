@@ -877,6 +877,9 @@ fun SettingsContent(section: SettingsSection, viewModel: MainViewModel) {
                             onCheckedChange = { viewModel.setKeepScreenOn(it) },
                             cardOpacity = cardOpacity
                         )
+
+                        // Permission Management (Android only) - uses androidMain implementation
+                        AndroidPermissionManagementSection(cardOpacity)
                     }
 
                     if (platform.type == PlatformType.Desktop) {

@@ -1,5 +1,6 @@
 package com.lanrhyme.micyou
 
+import androidx.compose.runtime.Composable
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.text.intl.Locale
 import kotlinx.serialization.Serializable
@@ -146,6 +147,34 @@ data class UsbStrings(
     val usbPortForwardingFailed: String = "ADB port forwarding failed. Please check if USB debugging is enabled.",
     val usbConnectionTimeout: String = "USB connection timeout. Please verify the ADB command was executed successfully.",
     val usbPermissionDenied: String = "USB debugging permission denied. Please accept the debugging request on your Android device."
+)
+
+@Serializable
+data class PermissionStrings(
+    val permissionDialogTitle: String = "App Permissions",
+    val permissionDialogMessage: String = "MicYou requires certain permissions to function properly. Please review and grant the following permissions:",
+    val permissionRecordAudioLabel: String = "Microphone",
+    val permissionRecordAudioDesc: String = "Required to capture and transmit audio from your device to the computer.",
+    val permissionBluetoothConnectLabel: String = "Bluetooth Connect",
+    val permissionBluetoothConnectDesc: String = "Used for Bluetooth audio streaming mode to connect with paired devices.",
+    val permissionBluetoothScanLabel: String = "Bluetooth Scan",
+    val permissionBluetoothScanDesc: String = "Used to discover nearby Bluetooth devices for connection.",
+    val permissionPostNotificationsLabel: String = "Notifications",
+    val permissionPostNotificationsDesc: String = "Displays streaming status notifications for better user experience.",
+    val permissionRequired: String = "Required",
+    val permissionOptional: String = "Optional",
+    val permissionGranted: String = "Granted",
+    val permissionClickToGrant: String = "Click to Grant",
+    val permissionRequiredHint: String = "Required permissions must be granted to use the app.",
+    val permissionRequestButton: String = "Grant Permissions",
+    val permissionAllGranted: String = "All Set",
+    val permissionManagementLabel: String = "Permission Management",
+    val permissionAllGrantedStatus: String = "All permissions granted (%d/%d)",
+    val permissionMissingWarning: String = "Some permissions missing (%d/%d granted)",
+    val permissionChecking: String = "Checking permissions...",
+    val permissionSettingsTitle: String = "App Permissions",
+    val permissionOpenSettings: String = "Open System Settings",
+    val permissionOpenSettingsDesc: String = "If you denied a permission, you need to grant it manually in system settings."
 )
 
 @Serializable
@@ -419,10 +448,61 @@ data class AppStrings(
     val audioEnhanced: AudioEnhancedStrings = AudioEnhancedStrings(),
 
     // USB Strings (nested)
-    val usb: UsbStrings = UsbStrings()
+    val usb: UsbStrings = UsbStrings(),
+
+    // Permission Strings (nested)
+    val permissions: PermissionStrings = PermissionStrings()
 )
 
 val LocalAppStrings = staticCompositionLocalOf { AppStrings() }
+val LocalPermissionStrings = staticCompositionLocalOf { PermissionStrings() }
+
+// Expect function for Android permission management UI
+@Composable
+expect fun AndroidPermissionManagementSection(cardOpacity: Float)
+
+// Permission state class - defined in commonMain for cross-platform use
+data class PermissionState(
+    val type: PermissionType,
+    val manifestPermission: String,
+    val isGranted: Boolean,
+    val minSdkVersion: Int = 0
+)
+
+// Permission type enum - defined in commonMain for cross-platform use
+enum class PermissionType(val labelKey: String, val descKey: String, val isRequired: Boolean) {
+    RECORD_AUDIO(
+        labelKey = "permissionRecordAudioLabel",
+        descKey = "permissionRecordAudioDesc",
+        isRequired = true
+    ),
+    BLUETOOTH_CONNECT(
+        labelKey = "permissionBluetoothConnectLabel",
+        descKey = "permissionBluetoothConnectDesc",
+        isRequired = false
+    ),
+    BLUETOOTH_SCAN(
+        labelKey = "permissionBluetoothScanLabel",
+        descKey = "permissionBluetoothScanDesc",
+        isRequired = false
+    ),
+    POST_NOTIFICATIONS(
+        labelKey = "permissionPostNotificationsLabel",
+        descKey = "permissionPostNotificationsDesc",
+        isRequired = false
+    )
+}
+
+// Expect function to check if all required permissions are granted
+expect fun hasAllRequiredPermissions(permissions: List<PermissionState>): Boolean
+
+// Expect function for permission dialog - used in App.kt
+@Composable
+expect fun PermissionDialog(
+    permissions: List<PermissionState>,
+    onDismiss: () -> Unit,
+    onRequestPermissions: (List<String>) -> Unit
+)
 
 private val json = Json {
     ignoreUnknownKeys = true

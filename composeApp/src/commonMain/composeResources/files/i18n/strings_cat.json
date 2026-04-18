@@ -335,5 +335,31 @@
     "usbPortForwardingFailed": "ADB 端口转发失败喵~请检查是否已启用 USB 调试喵~",
     "usbConnectionTimeout": "USB 连接超时喵~请验证 ADB 命令是否成功执行喵~",
     "usbPermissionDenied": "USB 调试权限被拒绝喵~请在 Android 设备上接受调试请求喵~"
+  },
+  "permissions": {
+    "permissionDialogTitle": "应用权限喵~ (・_・)",
+    "permissionDialogMessage": "MicYou 需要一些权限才能正常工作喵~请查看并授予以下权限喵：",
+    "permissionRecordAudioLabel": "麦克风喵~ 🎤",
+    "permissionRecordAudioDesc": "用于捕获和传输设备音频到电脑喵~是应用的核心功能喵！(๑•̀ㅂ•́)و✧",
+    "permissionBluetoothConnectLabel": "蓝牙连接喵~",
+    "permissionBluetoothConnectDesc": "用于蓝牙音频传输模式喵~与已配对的设备建立连接喵~",
+    "permissionBluetoothScanLabel": "蓝牙扫描喵~",
+    "permissionBluetoothScanDesc": "用于发现附近的蓝牙设备以便进行连接喵~",
+    "permissionPostNotificationsLabel": "通知喵~ 🔔",
+    "permissionPostNotificationsDesc": "显示串流状态通知喵~提供更好的用户体验喵~",
+    "permissionRequired": "必选喵~",
+    "permissionOptional": "可选喵~",
+    "permissionGranted": "已授权喵~ ✓",
+    "permissionClickToGrant": "点授权喵~",
+    "permissionRequiredHint": "必选权限必须授予才能使用本应用喵！(・_・;)",
+    "permissionRequestButton": "授予权限喵~",
+    "permissionAllGranted": "搞掂喵~ ✓",
+    "permissionManagementLabel": "权限管理喵~",
+    "permissionAllGrantedStatus": "所有权限已授予喵 (%d/%d) ✓",
+    "permissionMissingWarning": "部分权限缺失喵 (%d/%d 已授予) (ToT)",
+    "permissionChecking": "检查权限中喵... (・_・)",
+    "permissionSettingsTitle": "应用权限喵~",
+    "permissionOpenSettings": "打开系统设置喵~",
+    "permissionOpenSettingsDesc": "如果您拒绝了某个权限喵~需要在系统设置中手动授予喵~"
   }
 }

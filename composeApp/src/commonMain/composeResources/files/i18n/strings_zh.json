@@ -335,11 +335,36 @@
     "usbModeDialogCopied": "命令已复制！",
     "usbModeDialogDismiss": "关闭",
     "usbModeDialogHelp": "查看帮助",
-    
     "usbNotConnectedError": "USB 设备未连接。请通过 USB 线缆连接 Android 设备。",
     "usbAdbNotInstalledError": "ADB 未安装或未在 PATH 中找到。请安装 Android SDK Platform Tools。",
     "usbPortForwardingFailed": "ADB 端口转发失败。请检查是否已启用 USB 调试。",
     "usbConnectionTimeout": "USB 连接超时。请验证 ADB 命令是否成功执行。",
     "usbPermissionDenied": "USB 调试权限被拒绝。请在 Android 设备上接受调试请求。"
+  },
+  "permissions": {
+    "permissionDialogTitle": "应用权限",
+    "permissionDialogMessage": "MicYou 需要一些权限才能正常工作。请查看并授予以下权限：",
+    "permissionRecordAudioLabel": "麦克风",
+    "permissionRecordAudioDesc": "用于捕获和传输设备音频到电脑，是应用的核心功能。",
+    "permissionBluetoothConnectLabel": "蓝牙连接",
+    "permissionBluetoothConnectDesc": "用于蓝牙音频传输模式，与已配对的设备建立连接。",
+    "permissionBluetoothScanLabel": "蓝牙扫描",
+    "permissionBluetoothScanDesc": "用于发现附近的蓝牙设备以便进行连接。",
+    "permissionPostNotificationsLabel": "通知",
+    "permissionPostNotificationsDesc": "显示串流状态通知，提供更好的用户体验。",
+    "permissionRequired": "必选",
+    "permissionOptional": "可选",
+    "permissionGranted": "已授权",
+    "permissionClickToGrant": "点击授权",
+    "permissionRequiredHint": "必选权限必须授予才能使用本应用。",
+    "permissionRequestButton": "授予权限",
+    "permissionAllGranted": "完成",
+    "permissionManagementLabel": "权限管理",
+    "permissionAllGrantedStatus": "所有权限已授予 (%d/%d)",
+    "permissionMissingWarning": "部分权限缺失 (%d/%d 已授予)",
+    "permissionChecking": "正在检查权限...",
+    "permissionSettingsTitle": "应用权限",
+    "permissionOpenSettings": "打开系统设置",
+    "permissionOpenSettingsDesc": "如果您拒绝了某个权限，需要在系统设置中手动授予。"
   }
 }

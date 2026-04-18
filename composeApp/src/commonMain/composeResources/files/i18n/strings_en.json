@@ -334,5 +334,31 @@
     "usbPortForwardingFailed": "ADB port forwarding failed. Please check if USB debugging is enabled.",
     "usbConnectionTimeout": "USB connection timeout. Please verify the ADB command was executed successfully.",
     "usbPermissionDenied": "USB debugging permission denied. Please accept the debugging request on your Android device."
+  },
+  "permissions": {
+    "permissionDialogTitle": "App Permissions",
+    "permissionDialogMessage": "MicYou requires certain permissions to function properly. Please review and grant the following permissions:",
+    "permissionRecordAudioLabel": "Microphone",
+    "permissionRecordAudioDesc": "Required to capture and transmit audio from your device to the computer.",
+    "permissionBluetoothConnectLabel": "Bluetooth Connect",
+    "permissionBluetoothConnectDesc": "Used for Bluetooth audio streaming mode to connect with paired devices.",
+    "permissionBluetoothScanLabel": "Bluetooth Scan",
+    "permissionBluetoothScanDesc": "Used to discover nearby Bluetooth devices for connection.",
+    "permissionPostNotificationsLabel": "Notifications",
+    "permissionPostNotificationsDesc": "Displays streaming status notifications for better user experience.",
+    "permissionRequired": "Required",
+    "permissionOptional": "Optional",
+    "permissionGranted": "Granted",
+    "permissionClickToGrant": "Click to Grant",
+    "permissionRequiredHint": "Required permissions must be granted to use the app.",
+    "permissionRequestButton": "Grant Permissions",
+    "permissionAllGranted": "All Set",
+    "permissionManagementLabel": "Permission Management",
+    "permissionAllGrantedStatus": "All permissions granted (%d/%d)",
+    "permissionMissingWarning": "Some permissions missing (%d/%d granted)",
+    "permissionChecking": "Checking permissions...",
+    "permissionSettingsTitle": "App Permissions",
+    "permissionOpenSettings": "Open System Settings",
+    "permissionOpenSettingsDesc": "If you denied a permission, you need to grant it manually in system settings."
   }
 }

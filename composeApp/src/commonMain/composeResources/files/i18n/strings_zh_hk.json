@@ -335,5 +335,31 @@
     "usbPortForwardingFailed": "ADB 埠口轉送失敗。請檢查係咪開咗 USB 偵錯。",
     "usbConnectionTimeout": "USB 連線超時。請驗證 ADB 指令係咪成功執行。",
     "usbPermissionDenied": "USB 偵錯權限被拒絕。請喺 Android 裝置度接受偵錯請求。"
+  },
+  "permissions": {
+    "permissionDialogTitle": "應用程式權限",
+    "permissionDialogMessage": "MicYou 要一些權限才能正常運作。請睇吓同埋授予以下權限：",
+    "permissionRecordAudioLabel": "咪高峰",
+    "permissionRecordAudioDesc": "用嚟擷取同埋傳輸裝置音訊去電腦，係應用程式嘅核心功能。",
+    "permissionBluetoothConnectLabel": "藍牙連線",
+    "permissionBluetoothConnectDesc": "用於藍牙音訊傳輸模式，同已配對嘅裝置建立連線。",
+    "permissionBluetoothScanLabel": "藍牙掃描",
+    "permissionBluetoothScanDesc": "用嚟探索附近嘅藍牙裝置以便進行連線。",
+    "permissionPostNotificationsLabel": "通知",
+    "permissionPostNotificationsDesc": "顯示串流狀態通知，提供更好嘅使用者體驗。",
+    "permissionRequired": "必選",
+    "permissionOptional": "可選",
+    "permissionGranted": "已授權",
+    "permissionClickToGrant": "㩒授權",
+    "permissionRequiredHint": "必選權限必須授予才能使用呢個應用程式。",
+    "permissionRequestButton": "授予權限",
+    "permissionAllGranted": "搞掂",
+    "permissionManagementLabel": "權限管理",
+    "permissionAllGrantedStatus": "所有權限已授予 (%d/%d)",
+    "permissionMissingWarning": "部分權限缺失 (%d/%d 已授予)",
+    "permissionChecking": "檢查權限緊...",
+    "permissionSettingsTitle": "應用程式權限",
+    "permissionOpenSettings": "開啟系統設定",
+    "permissionOpenSettingsDesc": "如果你拒絕咗某個權限，需要喺系統設定度手動授予。"
   }
 }

@@ -28,7 +28,14 @@ fun App(
     onExitApp: () -> Unit = {},
     onHideApp: () -> Unit = {},
     onOpenSettings: () -> Unit = {},
-    isBluetoothDisabled: Boolean = false
+    isBluetoothDisabled: Boolean = false,
+    // Permission dialog parameters (Android only)
+    showPermissionDialog: Boolean = false,
+    currentPermissions: List<PermissionState> = emptyList(),
+    onRequestPermissions: (List<String>) -> Unit = {},
+    onPermissionDialogDismiss: () -> Unit = {},
+    // Flag to indicate permission dialog has been dismissed (to control first launch dialog timing)
+    isPermissionDialogDismissed: Boolean = true
 ) {
     val platform = remember { getPlatform() }
     val isClient = platform.type == PlatformType.Android
@@ -43,11 +50,15 @@ fun App(
     val updateInfo = uiState.updateInfo
     val pocketMode = uiState.pocketMode
     val useSystemTitleBar = uiState.useSystemTitleBar
-    val showFirstLaunchDialog = uiState.showFirstLaunchDialog
+    // Only show first launch dialog after permission dialog is dismissed
+    val showFirstLaunchDialog = uiState.showFirstLaunchDialog && isPermissionDialogDismissed
     val showVBCableDialog = uiState.showVBCableDialog
     val vbcableInstallProgress = uiState.vbcableInstallProgress
 
-    CompositionLocalProvider(LocalAppStrings provides strings) {
+    CompositionLocalProvider(
+        LocalAppStrings provides strings,
+        LocalPermissionStrings provides strings.permissions
+    ) {
         AppTheme(
             themeMode = uiState.themeMode,
             seedColor = seedColorObj,
@@ -361,7 +372,16 @@ fun App(
                     confirmButton = { }
                 )
             }
-            
+
+            // Permission Dialog (Android only)
+            if (showPermissionDialog && platform.type == PlatformType.Android && currentPermissions.isNotEmpty()) {
+                PermissionDialog(
+                    permissions = currentPermissions,
+                    onDismiss = onPermissionDialogDismiss,
+                    onRequestPermissions = onRequestPermissions
+                )
+            }
+
             // Connection Error Dialog
             val errorDetailsValue = uiState.errorDetails
             if (uiState.showErrorDialog && errorDetailsValue != null) {
