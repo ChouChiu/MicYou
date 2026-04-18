@@ -117,10 +117,6 @@ data class AppUiState(
     val performanceMode: String = "Default",
     val audioMetrics: AudioMetrics? = null,
 
-    // Preset State
-    val presets: List<AudioPreset> = emptyList(),
-    val currentPresetId: String = "default",
-
     // UI State
     val installMessage: String? = null,
     val snackbarMessage: String? = null
@@ -288,8 +284,6 @@ class MainViewModel : ViewModel() {
                     updateTotalBytes = updateState.updateTotalBytes,
                     updateErrorMessage = updateState.updateErrorMessage,
                     performanceMode = audioState.performanceMode,
-                    presets = audioStreamViewModel.presets.value,
-                    currentPresetId = audioState.currentPresetId,
                     snackbarMessage = settingsState.snackbarMessage
                 )
             }.collect { combinedState ->
@@ -432,10 +426,6 @@ class MainViewModel : ViewModel() {
     fun dismissUpdateDialog() = updateViewModel.dismissUpdateDialog()
     fun openGitHubRelease() = updateViewModel.openGitHubRelease()
 
-    // Preset methods
-    fun applyPreset(presetId: String) = audioStreamViewModel.applyPreset(presetId)
-    fun saveCurrentAsPreset(name: String) = audioStreamViewModel.saveCurrentAsPreset(name)
-    fun deletePreset(presetId: String) = audioStreamViewModel.deletePreset(presetId)
     fun getPeakLevel(seconds: Int = 3): Float = audioStreamViewModel.getPeakLevel(seconds)
     fun getAverageRms(seconds: Int = 3): Float = audioStreamViewModel.getAverageRms(seconds)
 

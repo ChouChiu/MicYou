@@ -17,16 +17,6 @@ enum class AppLanguage(val label: String, val code: String) {
 
 @Serializable
 data class AudioEnhancedStrings(
-    // Audio Presets
-    val presetLabel: String = "Audio Preset",
-    val presetDefault: String = "Default",
-    val presetMeeting: String = "Meeting",
-    val presetRecording: String = "Recording",
-    val presetLiveStream: String = "Live Stream",
-    val saveAsPreset: String = "Save as Preset",
-    val presetNameLabel: String = "Preset Name",
-    val presetSaved: String = "Preset saved successfully",
-
     // Performance Settings
     val performanceLabel: String = "Performance Mode",
     val performanceDefault: String = "Default",

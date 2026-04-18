@@ -1313,33 +1313,6 @@ fun SettingsContent(section: SettingsSection, viewModel: MainViewModel) {
                 } else {
                     // Desktop audio settings
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        // 0. 预设选择器 - 新增
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clip(MaterialTheme.shapes.medium)
-                                .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = cardOpacity * 0.5f))
-                        ) {
-                            Column(modifier = Modifier.padding(16.dp)) {
-                                Text("Audio Preset", style = MaterialTheme.typography.titleSmall)
-                                Spacer(Modifier.height(8.dp))
-                                LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                    items(state.presets) { preset ->
-                                        FilterChip(
-                                            selected = state.currentPresetId == preset.id,
-                                            onClick = { viewModel.applyPreset(preset.id) },
-                                            label = { Text(preset.name) },
-                                            leadingIcon = {
-                                                if (state.currentPresetId == preset.id) {
-                                                    Icon(Icons.Default.Check, null, modifier = Modifier.size(16.dp))
-                                                }
-                                            }
-                                        )
-                                    }
-                                }
-                            }
-                        }
-
                         // 1. 增益 (Amplifier) - 第一行显示
                         Box(
                             modifier = Modifier

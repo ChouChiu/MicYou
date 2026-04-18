@@ -43,10 +43,7 @@ data class AudioStreamUiState(
 
     // Performance Settings
     val performanceMode: String = "Default",
-    val performanceConfig: PerformanceConfig = PerformanceConfig.DEFAULT,
-
-    // Preset Settings
-    val currentPresetId: String = "default"
+    val performanceConfig: PerformanceConfig = PerformanceConfig.DEFAULT
 )
 
 class AudioStreamViewModel : ViewModel() {
@@ -66,11 +63,6 @@ class AudioStreamViewModel : ViewModel() {
     val levelHistory: StateFlow<List<AudioLevelHistory.AudioLevelSample>> = _levelHistory.asStateFlow()
 
     private val settings = SettingsFactory.getSettings()
-
-    // 预设管理器
-    private val presetManager = PresetManager(settings)
-    val presets: StateFlow<List<AudioPreset>> = presetManager.presets
-    val currentPresetIdFlow: StateFlow<String> = presetManager.currentPresetId
 
     init {
         loadSettings()
@@ -539,62 +531,6 @@ class AudioStreamViewModel : ViewModel() {
                 _uiState.update { it.copy(errorMessage = "无法自动添加防火墙规则: $error\n请尝试以管理员身份运行程序，或手动在防火墙中放行 TCP $port 端口。") }
             }
         }
-    }
-
-    // ==================== 预设管理方法 ====================
-
-    /**
-     * 应用指定预设
-     */
-    fun applyPreset(presetId: String) {
-        presetManager.applyPreset(presetId) { presetSettings ->
-            // 应用音频处理参数
-            setEnableNS(presetSettings.enableNS)
-            setNsType(presetSettings.nsType)
-            setEnableAGC(presetSettings.enableAGC)
-            setAgcTargetLevel(presetSettings.agcTargetLevel)
-            setEnableVAD(presetSettings.enableVAD)
-            setVadThreshold(presetSettings.vadThreshold)
-            setEnableDereverb(presetSettings.enableDereverb)
-            setDereverbLevel(presetSettings.dereverbLevel)
-            setAmplification(presetSettings.amplification)
-
-            // 可选：应用音频格式参数
-            presetSettings.sampleRate?.let { setSampleRate(it) }
-            presetSettings.channelCount?.let { setChannelCount(it) }
-            presetSettings.audioFormat?.let { setAudioFormat(it) }
-        }
-
-        _uiState.update { it.copy(currentPresetId = presetId) }
-    }
-
-    /**
-     * 保存当前配置为自定义预设
-     */
-    fun saveCurrentAsPreset(name: String) {
-        val s = _uiState.value
-        val presetSettings = AudioPresetSettings(
-            enableNS = s.enableNS,
-            nsType = s.nsType,
-            enableAGC = s.enableAGC,
-            agcTargetLevel = s.agcTargetLevel,
-            enableVAD = s.enableVAD,
-            vadThreshold = s.vadThreshold,
-            enableDereverb = s.enableDereverb,
-            dereverbLevel = s.dereverbLevel,
-            amplification = s.amplification,
-            sampleRate = s.sampleRate,
-            channelCount = s.channelCount,
-            audioFormat = s.audioFormat
-        )
-        presetManager.saveCustomPreset(name, presetSettings)
-    }
-
-    /**
-     * 删除自定义预设
-     */
-    fun deletePreset(presetId: String) {
-        presetManager.deleteCustomPreset(presetId)
     }
 
     // ==================== 性能配置方法 ====================
