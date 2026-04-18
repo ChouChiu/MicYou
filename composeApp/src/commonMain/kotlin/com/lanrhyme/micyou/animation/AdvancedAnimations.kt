@@ -258,7 +258,11 @@ fun rememberStaggeredAppearAnimation(
     visible: Boolean,
     durationMillis: Int = AnimationDefaults.STAGGERED_DURATION
 ): Float {
-    val delay = (index * AnimationDefaults.STAGGERED_DELAY_PER_ITEM).coerceAtMost(AnimationDefaults.STAGGERED_MAX_DELAY)
+    // 使用安全的延迟计算，防止整数溢出和负值
+    val delay = (index.toLong() * AnimationDefaults.STAGGERED_DELAY_PER_ITEM)
+        .coerceAtMost(AnimationDefaults.STAGGERED_MAX_DELAY.toLong())
+        .coerceAtLeast(0L)
+        .toInt()
     return animateFloatAsState(
         targetValue = if (visible) 1f else 0f,
         animationSpec = tween(durationMillis, delayMillis = delay, easing = EasingFunctions.EaseOutExpo),

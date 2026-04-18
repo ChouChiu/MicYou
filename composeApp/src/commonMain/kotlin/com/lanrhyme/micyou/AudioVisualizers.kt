@@ -1,5 +1,6 @@
 package com.lanrhyme.micyou
 
+import androidx.compose.animation.core.Easing
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
@@ -93,6 +94,9 @@ object VisualizerConstants {
     const val ANIM_DURATION_PULSE_DESKTOP = 1000
     const val ANIM_DURATION_PULSE_MOBILE = 1200
     const val ANIM_DURATION_LEVEL_UPDATE = 100
+
+    // 缓动函数配置 - 音频级别更新使用线性缓动以保持实时响应
+    val EASING_LEVEL_UPDATE = LinearEasing
 
     // Alpha 值配置
     const val ALPHA_BACKGROUND_RING = 0.15f
@@ -197,7 +201,7 @@ private fun VolumeRingVisualizer(
 ) {
     val animatedLevel by animateFloatAsState(
         targetValue = audioLevel,
-        animationSpec = tween(VisualizerConstants.ANIM_DURATION_LEVEL_UPDATE, easing = LinearEasing),
+        animationSpec = tween(VisualizerConstants.ANIM_DURATION_LEVEL_UPDATE, easing = VisualizerConstants.EASING_LEVEL_UPDATE),
         label = "VolumeLevel"
     )
 
