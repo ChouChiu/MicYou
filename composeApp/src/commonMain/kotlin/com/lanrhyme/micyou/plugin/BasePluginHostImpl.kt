@@ -99,14 +99,54 @@ abstract class BasePluginHostImpl(
         audioEngine.setMonitoring(enabled)
     }
 
-    protected val registeredEffects = mutableMapOf<String, AudioEffectProvider>()
+    /**
+     * 已注册的音频效果器及其优先级。
+     * 存储为 Pair<效果器, 优先级>，按优先级排序时使用。
+     */
+    protected val registeredEffects = mutableMapOf<String, Pair<AudioEffectProvider, Int>>()
 
+    /**
+     * 注册音频效果器。
+     *
+     * @param effect 音频效果器提供者
+     * @param priority 处理优先级，数值越小越先处理（例如：降噪=10, AGC=50, 放大=100）
+     */
     override fun registerAudioEffect(effect: AudioEffectProvider, priority: Int) {
-        registeredEffects[effect.id] = effect
+        registeredEffects[effect.id] = effect to priority
     }
 
     override fun unregisterAudioEffect(effect: AudioEffectProvider) {
         registeredEffects.remove(effect.id)
+    }
+
+    /**
+     * 获取按优先级排序的已注册效果器列表。
+     * 优先级数值越小，越先处理音频。
+     *
+     * @return 按优先级升序排列的效果器列表
+     */
+    fun getSortedEffects(): List<AudioEffectProvider> {
+        return registeredEffects.values
+            .sortedBy { it.second }  // 按优先级升序排序
+            .map { it.first }        // 提取效果器
+    }
+
+    /**
+     * 批量处理音频数据，按优先级顺序应用所有已注册的效果器。
+     *
+     * @param input 输入音频数据
+     * @param channelCount 声道数
+     * @param sampleRate 采样率
+     * @return 处理后的音频数据
+     */
+    fun processAudio(input: ShortArray, channelCount: Int, sampleRate: Int): ShortArray {
+        var output = input
+        for (effect in getSortedEffects()) {
+            if (effect.isEnabled) {
+                output = effect.process(output, channelCount, sampleRate)
+            }
+        }
+        return output
     }
 
     override fun createDataChannel(id: String, config: DataChannelConfig): PluginDataChannel {

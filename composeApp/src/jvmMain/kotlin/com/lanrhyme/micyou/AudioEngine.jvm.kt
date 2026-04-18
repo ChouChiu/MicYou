@@ -227,14 +227,19 @@ actual class AudioEngine actual constructor() {
              job = null
              // 使用协程异步停止，避免阻塞调用线程
              // 保存停止 Job 以便 start() 可以等待其完成，防止竞态条件
-             stopJob = scope.launch {
-                 try {
-                     withTimeoutOrNull(Constants.SERVER_STOP_TIMEOUT_MS) {
-                         networkServer.stop()
-                     } ?: Logger.w("AudioEngine", "NetworkServer stop timeout after ${Constants.SERVER_STOP_TIMEOUT_MS}ms")
-                 } catch (e: Exception) {
-                     Logger.e("AudioEngine", "Error in async stop: ${e.message}", e)
+             // 检查是否已有活跃的停止操作，避免协程泄漏
+             if (stopJob?.isActive != true) {
+                 stopJob = scope.launch {
+                     try {
+                         withTimeoutOrNull(Constants.SERVER_STOP_TIMEOUT_MS) {
+                             networkServer.stop()
+                         } ?: Logger.w("AudioEngine", "NetworkServer stop timeout after ${Constants.SERVER_STOP_TIMEOUT_MS}ms")
+                     } catch (e: Exception) {
+                         Logger.e("AudioEngine", "Error in async stop: ${e.message}", e)
+                     }
                  }
+             } else {
+                 Logger.d("AudioEngine", "Stop operation already in progress, skipping duplicate stop request")
              }
              _lastError.value = null
              _state.value = StreamState.Idle
