@@ -8,7 +8,8 @@ package com.lanrhyme.micyou.audio
  */
 class AudioProcessingException(
     message: String,
-    cause: Throwable? = null
+    cause: Throwable? = null,
+    val errorType: ErrorType? = null
 ) : Exception(message, cause) {
 
     /**
@@ -31,9 +32,5 @@ class AudioProcessingException(
         RESOURCE_DESTROYED
     }
 
-    val errorType: ErrorType? = null
-
-    constructor(message: String, errorType: ErrorType) : this(message) {
-        // 可以通过扩展添加更多构造函数
-    }
+    constructor(message: String, errorType: ErrorType) : this(message, null, errorType)
 }

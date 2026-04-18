@@ -107,24 +107,10 @@ class AudioOutputManager {
                 "-"
             ).redirectErrorStream(false).start()
 
-            // 使用智能等待替代固定 Thread.sleep
-            // 检查进程状态而非固定等待时间，更可靠且响应更快
-            // 修复：当进程未存活时，exitValue() 可能抛出异常，需单独处理
-            val maxWaitMs = 1000L
-            val checkIntervalMs = 50L
-            var waited = 0L
-            while (waited < maxWaitMs) {
-                if (process.isAlive) {
-                    // 进程存活，等待并继续检查
-                    Thread.sleep(checkIntervalMs)
-                    waited += checkIntervalMs
-                } else {
-                    // 进程已终止，退出等待循环
-                    break
-                }
-            }
+            // 短暂等待以检测"立即退出"的失败场景
+            // 若进程在短窗口后仍存活，视为启动成功并立即继续
+            Thread.sleep(100)
 
-            // 检查进程最终状态
             val isProcessAlive = process.isAlive
 
             // 判断成功条件：
@@ -145,7 +131,7 @@ class AudioOutputManager {
                 pwCatProcess = process
                 isUsingVirtualDevice = true
                 val statusInfo = if (isProcessAlive) "running" else "exited(0)"
-                Logger.i("AudioOutputManager", "Using pw-cat to write to virtual sink: $sinkName (waited ${waited}ms, status=$statusInfo)")
+                Logger.i("AudioOutputManager", "Using pw-cat to write to virtual sink: $sinkName (status=$statusInfo)")
                 return true
             } else {
                 val exitInfo = try { "exit(${process.exitValue()})" } catch (e: Exception) { "exit(?)" }
@@ -345,23 +331,10 @@ class AudioOutputManager {
                 "--playback-props={\"media.class\": \"Stream/Output/Audio\"}"
             ).redirectErrorStream(true).start()
 
-            // 使用智能等待替代固定 Thread.sleep
-            // 修复：当进程未存活时，exitValue() 可能抛出异常，需单独处理
-            val maxWaitMs = 1000L
-            val checkIntervalMs = 50L
-            var waited = 0L
-            while (waited < maxWaitMs) {
-                if (process.isAlive) {
-                    // 进程存活，等待并继续检查
-                    Thread.sleep(checkIntervalMs)
-                    waited += checkIntervalMs
-                } else {
-                    // 进程已终止，退出等待循环
-                    break
-                }
-            }
+            // 短暂等待以检测"立即退出"的失败场景
+            // 若进程在短窗口后仍存活，视为启动成功并立即继续
+            Thread.sleep(100)
 
-            // 检查进程最终状态
             val isProcessAlive = process.isAlive
 
             // 判断成功条件：
@@ -381,7 +354,7 @@ class AudioOutputManager {
             if (success) {
                 monitorLoopbackProcess = process
                 val statusInfo = if (isProcessAlive) "running" else "exited(0)"
-                Logger.i("AudioOutputManager", "Monitor loopback started (pid: ${process.pid()}, waited ${waited}ms, status=$statusInfo)")
+                Logger.i("AudioOutputManager", "Monitor loopback started (pid: ${process.pid()}, status=$statusInfo)")
             } else {
                 val output = process.inputStream.bufferedReader().readText()
                 Logger.e("AudioOutputManager", "Monitor loopback failed to start: $output")

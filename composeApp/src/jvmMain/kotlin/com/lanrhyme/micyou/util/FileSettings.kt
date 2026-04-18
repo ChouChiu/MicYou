@@ -52,10 +52,10 @@ class FileSettings(private val configFile: File) : Settings {
 
     /**
      * 触发保存操作。
-     * 如果是关键设置（forceSave=true），立即写入。
-     * 否则标记为 dirty，等待批量保存。
+     * 默认立即写入以确保数据持久化。
+     * 如果需要批量更新，请使用 batchUpdate() 方法。
      */
-    private fun triggerSave(immediate: Boolean = false) {
+    private fun triggerSave(immediate: Boolean = true) {
         if (immediate || forceSave) {
             saveImmediate()
         } else {
