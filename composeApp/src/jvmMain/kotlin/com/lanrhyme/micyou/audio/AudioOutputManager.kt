@@ -110,9 +110,9 @@ class AudioOutputManager {
             // 使用智能等待替代固定 Thread.sleep
             // 检查进程状态而非固定等待时间，更可靠且响应更快
             // 修复：当进程未存活时，exitValue() 可能抛出异常，需单独处理
-            val maxWaitMs = 1000
-            val checkIntervalMs = 50
-            var waited = 0
+            val maxWaitMs = 1000L
+            val checkIntervalMs = 50L
+            var waited = 0L
             while (waited < maxWaitMs) {
                 if (process.isAlive) {
                     // 进程存活，等待并继续检查
@@ -342,9 +342,9 @@ class AudioOutputManager {
 
             // 使用智能等待替代固定 Thread.sleep
             // 修复：当进程未存活时，exitValue() 可能抛出异常，需单独处理
-            val maxWaitMs = 1000
-            val checkIntervalMs = 50
-            var waited = 0
+            val maxWaitMs = 1000L
+            val checkIntervalMs = 50L
+            var waited = 0L
             while (waited < maxWaitMs) {
                 if (process.isAlive) {
                     // 进程存活，等待并继续检查

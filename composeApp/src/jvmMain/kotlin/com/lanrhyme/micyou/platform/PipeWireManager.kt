@@ -155,8 +155,8 @@ object PipeWireManager {
 
             // 使用智能等待替代固定 Thread.sleep
             // 修复：当进程未存活时，exitValue() 可能抛出异常，需单独处理
-            val maxWaitMs = 1000
-            val checkIntervalMs = 50
+            val maxWaitMs = 1000L
+            val checkIntervalMs = 50L
             var waited = 0L
             while (waited < maxWaitMs) {
                 if (process.isAlive) {
