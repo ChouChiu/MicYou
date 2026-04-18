@@ -22,6 +22,11 @@ data class AudioEnhancedStrings(
     val performanceDefault: String = "Default",
     val performanceLowLatency: String = "Low Latency",
     val performanceHighQuality: String = "High Quality",
+    val performanceInfoTitle: String = "Performance Mode Info",
+    val performanceInfoDescription: String = "Adjust audio processing buffer settings for different scenarios:",
+    val performanceDefaultDescription: String = "Balanced performance and stability, suitable for most scenarios with ~250ms buffer",
+    val performanceLowLatencyDescription: String = "Smaller buffer (~100ms) for real-time communication, may cause audio glitches on unstable networks",
+    val performanceHighQualityDescription: String = "Larger buffer (~500ms) for recording and high-fidelity transfer, higher latency but more stable",
 
     // Audio Metrics
     val bitrateLabel: String = "Bitrate",
