@@ -109,6 +109,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.lanrhyme.micyou.animation.EasingFunctions
 import com.lanrhyme.micyou.plugin.PluginInfo
+import com.lanrhyme.micyou.theme.SuperRoundedShape
 import dev.chrisbanes.haze.HazeState
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -351,7 +352,7 @@ private fun HeaderSection(
     )
 
     HazeSurface(
-        shape = RoundedCornerShape(16.dp),
+        shape = MaterialTheme.shapes.large,
         color = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = cardOpacity),
         hazeColor = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = cardOpacity * 0.7f),
         modifier = Modifier
@@ -372,7 +373,7 @@ private fun HeaderSection(
         ) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 Surface(
-                    shape = RoundedCornerShape(10.dp),
+                    shape = MaterialTheme.shapes.small,
                     color = MaterialTheme.colorScheme.primaryContainer,
                     modifier = Modifier.size(36.dp)
                 ) {
@@ -410,7 +411,7 @@ private fun HeaderSection(
             val coroutineScope = rememberCoroutineScope()
             
             Surface(
-                shape = RoundedCornerShape(10.dp),
+                shape = MaterialTheme.shapes.small,
                 color = MaterialTheme.colorScheme.surfaceContainerHighest
             ) {
                 Box(
@@ -613,7 +614,7 @@ private fun ModeCard(
     enableHaze: Boolean = false
 ) {
     HazeSurface(
-        shape = RoundedCornerShape(16.dp),
+        shape = MaterialTheme.shapes.large,
         color = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = cardOpacity),
         hazeColor = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = cardOpacity * 0.7f),
         modifier = Modifier.fillMaxWidth(),
@@ -647,7 +648,7 @@ private fun ModeCard(
                         modifier = Modifier
                             .weight(1f)
                             .height(42.dp)
-                            .clip(RoundedCornerShape(10.dp))
+                            .clip(MaterialTheme.shapes.small)
                             .background(bgColor)
                             .hoverable(interactionSource = remember { MutableInteractionSource() })
                             .clickable { onModeSelected(mode) }
@@ -678,7 +679,7 @@ private fun PortCard(
     enableHaze: Boolean = false
 ) {
     HazeSurface(
-        shape = RoundedCornerShape(16.dp),
+        shape = MaterialTheme.shapes.large,
         color = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = cardOpacity),
         hazeColor = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = cardOpacity * 0.7f),
         modifier = Modifier.fillMaxWidth(),
@@ -719,7 +720,7 @@ private fun StatusCard(
     )
     
     HazeSurface(
-        shape = RoundedCornerShape(16.dp),
+        shape = MaterialTheme.shapes.large,
         color = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = cardOpacity),
         hazeColor = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = cardOpacity * 0.7f),
         modifier = modifier.fillMaxWidth(),
@@ -732,7 +733,7 @@ private fun StatusCard(
             verticalArrangement = Arrangement.Center
         ) {
             Surface(
-                shape = RoundedCornerShape(12.dp),
+                shape = MaterialTheme.shapes.small,
                 color = statusColor.copy(alpha = 0.12f),
                 modifier = Modifier.size(48.dp)
             ) {
@@ -765,7 +766,7 @@ private fun StatusCard(
                 if (errorMessage != null) {
                     Spacer(Modifier.height(6.dp))
                     Surface(
-                        shape = RoundedCornerShape(8.dp),
+                        shape = MaterialTheme.shapes.extraSmall,
                         color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.5f)
                     ) {
                         Text(
@@ -817,7 +818,7 @@ private fun CenterPanel(
     val isConnecting = state.streamState == StreamState.Connecting
 
     HazeSurface(
-        shape = RoundedCornerShape(16.dp),
+        shape = MaterialTheme.shapes.large,
         color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.25f * cardOpacity),
         hazeColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.25f * cardOpacity * 0.7f),
         modifier = modifier
@@ -879,7 +880,7 @@ private fun CenterPanel(
                 )
                 if (isRunning) {
                     Surface(
-                        shape = RoundedCornerShape(3.dp),
+                        shape = MaterialTheme.shapes.extraSmall,
                         color = buttonColor
                     ) {
                         Text(
@@ -1328,8 +1329,8 @@ private fun MainControlButton(
             interactionSource = interactionSource,
             containerColor = buttonColor,
             modifier = Modifier.size(buttonSize),
-            shape = CircleShape,
-            elevation = FloatingActionButtonDefaults.elevation(defaultElevation = if (isPressed) 2.dp else 6.dp)
+            shape = SuperRoundedShape,
+            elevation = FloatingActionButtonDefaults.elevation(defaultElevation = if (isPressed) 2.dp else 8.dp)
         ) {
             Icon(
                 when {
@@ -1386,7 +1387,7 @@ private fun BottomBar(
     )
 
     HazeSurface(
-        shape = RoundedCornerShape(16.dp),
+        shape = MaterialTheme.shapes.large,
         color = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = cardOpacity),
         hazeColor = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = cardOpacity * 0.7f),
         modifier = Modifier
@@ -1480,7 +1481,7 @@ private fun MuteButton(
     )
     
     Surface(
-        shape = RoundedCornerShape(10.dp),
+        shape = MaterialTheme.shapes.small,
         color = bgColor,
         modifier = Modifier.scale(scale).clickable(interactionSource, null) { onToggle() }
     ) {
@@ -1524,7 +1525,7 @@ private fun MonitorButton(
     )
     
     Surface(
-        shape = RoundedCornerShape(10.dp),
+        shape = MaterialTheme.shapes.small,
         color = bgColor,
         modifier = Modifier.scale(scale).clickable(interactionSource, null) { onToggle() }
     ) {
