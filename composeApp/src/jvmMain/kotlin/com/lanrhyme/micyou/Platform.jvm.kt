@@ -2,10 +2,13 @@ package com.lanrhyme.micyou
 
 import androidx.compose.material3.ColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
+import androidx.compose.ui.graphics.Color
 import com.lanrhyme.micyou.platform.FirewallManager
 import com.lanrhyme.micyou.platform.PlatformInfo
 import com.lanrhyme.micyou.platform.WindowsAccentColorExtractor
-import com.lanrhyme.micyou.theme.generateColorScheme
+import com.lanrhyme.micyou.theme.PaletteStyle
+import com.lanrhyme.micyou.theme.dynamicColorScheme
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.net.InetAddress
@@ -121,22 +124,25 @@ actual fun getDynamicSeedColor(): Long? {
 }
 
 @Composable
-actual fun getDynamicColorScheme(isDark: Boolean): ColorScheme? {
+actual fun getDynamicColorScheme(isDark: Boolean, paletteStyle: PaletteStyle): ColorScheme? {
     // 目前只为 Windows 提供莫奈取色
     if (!PlatformInfo.isWindows) {
         return null
     }
 
-    // 每次都重新获取颜色，确保启动时能获取最新的系统主题色
-    val seedColor = WindowsAccentColorExtractor.getAccentColor()
+    // 使用 remember 缓存生成的配色方案，避免每次重组时重复获取系统颜色
+    return remember(isDark, paletteStyle) {
+        // 获取 Windows 系统主题色
+        val seedColor = WindowsAccentColorExtractor.getAccentColor()
 
-    // 如果无法获取系统主题色，返回 null 使用默认主题
-    val color = seedColor ?: return null
+        // 如果无法获取系统主题色，返回 null 使用默认主题
+        val color = seedColor ?: return@remember null
 
-    Logger.d("Platform", "Using Windows accent color: $color")
+        Logger.d("Platform", "Using Windows accent color: $color")
 
-    // 使用现有的颜色方案生成器
-    return generateColorScheme(color, isDark)
+        // 使用用户选择的 paletteStyle 生成配色方案
+        dynamicColorScheme(color, isDark, paletteStyle)
+    }
 }
 
 actual fun getAudioSourceOptions(): List<AudioSourceOption> = emptyList()
