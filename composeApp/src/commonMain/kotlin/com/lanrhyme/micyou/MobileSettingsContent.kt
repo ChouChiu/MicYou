@@ -92,7 +92,7 @@ fun MobileSettingsPage(
     val isDarkTheme = isDarkThemeActive(state.themeMode)
     val platform = getPlatform()
 
-    val backgroundColor = MaterialTheme.colorScheme.background
+    val backgroundColor = MaterialTheme.colorScheme.surfaceContainer
     val topBarBackgroundColor = backgroundColor.copy(alpha = 0.8f)
     // 独立的 HazeState 用于顶部导航栏毛玻璃效果
     val topBarHazeState = rememberHazeState()
@@ -297,7 +297,7 @@ private fun ExpressiveGeneralSettings(viewModel: MainViewModel, hazeState: HazeS
 
     val cardOpacity = state.backgroundSettings.cardOpacity
     val enableHaze = state.backgroundSettings.enableHazeEffect && state.backgroundSettings.hasCustomBackground
-    val baseContainerColor = MaterialTheme.colorScheme.surfaceContainerLow
+    val baseContainerColor = MaterialTheme.colorScheme.surfaceBright
     val containerColor = baseContainerColor.copy(alpha = cardOpacity)
 
     // 收集所有设置项
@@ -399,7 +399,7 @@ private fun ExpressiveAppearanceSettings(viewModel: MainViewModel, hazeState: Ha
 
     val cardOpacity = state.backgroundSettings.cardOpacity
     val enableHaze = state.backgroundSettings.enableHazeEffect && state.backgroundSettings.hasCustomBackground
-    val baseContainerColor = MaterialTheme.colorScheme.surfaceContainerLow
+    val baseContainerColor = MaterialTheme.colorScheme.surfaceBright
     val containerColor = baseContainerColor.copy(alpha = cardOpacity)
 
     val seedColors = listOf(
@@ -696,7 +696,7 @@ private fun ExpressiveAudioSettings(viewModel: MainViewModel, hazeState: HazeSta
 
     val cardOpacity = state.backgroundSettings.cardOpacity
     val enableHaze = state.backgroundSettings.enableHazeEffect && state.backgroundSettings.hasCustomBackground
-    val baseContainerColor = MaterialTheme.colorScheme.surfaceContainerLow
+    val baseContainerColor = MaterialTheme.colorScheme.surfaceBright
     val containerColor = baseContainerColor.copy(alpha = cardOpacity)
 
     // 收集所有设置项
@@ -980,7 +980,7 @@ private fun ExpressivePluginSettings(viewModel: MainViewModel, hazeState: HazeSt
 
     val cardOpacity = state.backgroundSettings.cardOpacity
     val enableHaze = state.backgroundSettings.enableHazeEffect && state.backgroundSettings.hasCustomBackground
-    val baseContainerColor = MaterialTheme.colorScheme.surfaceContainerLow
+    val baseContainerColor = MaterialTheme.colorScheme.surfaceBright
     val containerColor = baseContainerColor.copy(alpha = cardOpacity)
 
     // 使用单层卡片包裹插件设置内容
@@ -1009,7 +1009,7 @@ private fun ExpressiveAboutSettings(viewModel: MainViewModel, hazeState: HazeSta
 
     val cardOpacity = state.backgroundSettings.cardOpacity
     val enableHaze = state.backgroundSettings.enableHazeEffect && state.backgroundSettings.hasCustomBackground
-    val baseContainerColor = MaterialTheme.colorScheme.surfaceContainerLow
+    val baseContainerColor = MaterialTheme.colorScheme.surfaceBright
     val containerColor = baseContainerColor.copy(alpha = cardOpacity)
 
     if (showContributorsDialog) {
